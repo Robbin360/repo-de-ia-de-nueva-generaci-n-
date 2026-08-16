@@ -17,6 +17,8 @@ class AethelConfig:
     max_seq_len: int = 8192
     rope_theta: float = 10000.0
     norm_eps: float = 1e-6
+    router_bias_step: float = 0.01
+    router_bias_limit: float = 0.25
 
 class RMSNorm(nn.Module):
     def __init__(self, dim: int, eps: float = 1e-6):
@@ -78,13 +80,26 @@ class SparseMoE(nn.Module):
         
         self.experts = nn.ModuleList([SwiGLU(config.dim, hidden_dim) for _ in range(config.n_experts)])
         self.last_load = [0.0] * config.n_experts
+        self.register_buffer("router_bias", torch.zeros(config.n_experts), persistent=True)
+        self.register_buffer("load_ema", torch.full((config.n_experts,), 1.0 / config.n_experts), persistent=True)
+        self.router_bias_step = config.router_bias_step
+        self.router_bias_limit = config.router_bias_limit
+        self.last_routing_stats = {"entropy": 0.0, "max_load": 0.0, "imbalance": 0.0, "bias": [0.0] * config.n_experts}
+
+    @torch.no_grad()
+    def _update_load_balancer(self, tokens_per_expert: torch.Tensor) -> None:
+        """Ajuste lento sin pérdida auxiliar adicional; no altera gradientes del router."""
+        self.load_ema.mul_(0.95).add_(tokens_per_expert.detach().to(self.load_ema) * 0.05)
+        target = 1.0 / self.n_experts
+        correction = target - self.load_ema
+        self.router_bias.add_(self.router_bias_step * correction).clamp_(-self.router_bias_limit, self.router_bias_limit)
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_size, seq_len, dim = x.shape
         x_flat = x.view(-1, dim)
         num_tokens = x_flat.shape[0]
         
         # Logits del Router
-        router_logits = self.gate(x_flat)
+        router_logits = self.gate(x_flat) + self.router_bias.to(x_flat.dtype)
         # Probabilidades completas del router (para pérdida auxiliar exacta)
         router_probs = F.softmax(router_logits, dim=-1, dtype=torch.float)
         
@@ -115,6 +130,15 @@ class SparseMoE(nn.Module):
         # Fracción de tokens asignados a cada experto
         tokens_per_expert = torch.bincount(selected_experts.flatten(), minlength=self.n_experts).float() / (num_tokens * self.top_k)
         self.last_load = [round(float(value) * 100, 4) for value in tokens_per_expert.detach().cpu()]
+        if self.training:
+            self._update_load_balancer(tokens_per_expert)
+        entropy = -(tokens_per_expert * tokens_per_expert.clamp_min(1e-9).log()).sum() / math.log(self.n_experts)
+        self.last_routing_stats = {
+            "entropy": float(entropy.detach().cpu()),
+            "max_load": float(tokens_per_expert.max().detach().cpu()),
+            "imbalance": float((tokens_per_expert - (1.0 / self.n_experts)).abs().mean().detach().cpu()),
+            "bias": [float(value) for value in self.router_bias.detach().cpu()],
+        }
         # Probabilidad promedio asignada a cada experto por el router
         router_prob_per_expert = router_probs.mean(dim=0)
         # Pérdida auxiliar = n_experts * sum(density * prob)

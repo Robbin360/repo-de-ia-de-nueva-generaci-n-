@@ -1,0 +1,13 @@
+{
+  "corpus": "/home/ubuntu/IA-de-nueva-generaci-n-ultra-eficiente/input.txt",
+  "steps": 12,
+  "first_loss": 6.296721458435059,
+  "last_loss": 6.0910844802856445,
+  "replay_events": 6,
+  "max_router_imbalance": 0.25,
+  "minimum_router_entropy": 0.5,
+  "all_router_events_healthy": true,
+  "checkpoint": "external-temporary:/tmp/aethel-quality-experiment/run/latest.pt",
+  "metrics": "external-temporary:/tmp/aethel-quality-experiment/run/metrics_rank_0.jsonl",
+  "interpretation": "Corrida corta de estabilidad sobre corpus real del repositorio. Confirma emisión de replay y salud del router; no constituye una evaluación de capacidad ni una métrica frontier."
+}

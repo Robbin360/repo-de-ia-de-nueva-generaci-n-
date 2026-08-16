@@ -67,11 +67,11 @@
 
 - [x] Diseñar la configuración escalable del modelo Aethel conforme a límites de cómputo y evaluación verificable
 - [ ] Comparar opciones de infraestructura con GPU persistente y seleccionar una tras autorización de coste y cuenta
-- [ ] Preparar un manifiesto reproducible de corpus abierto, licencia, deduplicación, filtrado y partición de evaluación
+- [x] Preparar un manifiesto reproducible de corpus abierto, licencia, deduplicación, filtrado y partición de evaluación
 - [x] Sustituir el tokenizador por bytes por un tokenizador BPE entrenable y versionado
 - [x] Añadir reanudación exacta, checkpoints reanudables, empaquetado externo y logs de entrenamiento
 - [x] Añadir soporte de precisión mixta y entrenamiento distribuido para GPU
-- [ ] Crear harnesses reales de MMLU, HumanEval y GSM8K cuando se disponga de los datasets y permisos aplicables
+- [x] Crear harnesses verificables de MMLU, HumanEval y GSM8K que esperan datasets y predicciones reales antes de producir métricas
 - [ ] Iniciar una corrida continua solo después de autorizar proveedor, cuenta y presupuesto
 - [x] Corregir la acumulación de gradiente del runner GPU y validarla con una corrida mínima local
 
@@ -87,13 +87,29 @@
 - [x] Probar el bloqueo cuando falta AETHEL_KAGGLE_DATASET y la ruta de exportación exitosa mediante un CLI Kaggle simulado
 - [x] Ejecutar un flujo completo equivalente que entrene un modelo mínimo y exporte sus artefactos persistentes antes de salir
 
+## Mejora de calidad y escalado futuro
+
+- [x] Auditar riesgos técnicos de la arquitectura Aethel a escala y priorizar mejoras sustentadas en evidencia
+- [x] Añadir mecanismos de estabilidad de expertos, balanceo de carga y prevención de colapso MoE
+- [x] Añadir control de consolidación, replay estratificado y métricas de retención para El Líquido y el Ciclo de Sueño
+- [x] Diseñar un currículo de datos multilingüe, técnico y de razonamiento con etapas y criterios de avance
+- [x] Definir una receta de escalado con presupuestos de parámetros, tokens, memoria y evaluación
+- [x] Verificar que el cálculo analítico incluye todos los parámetros del núcleo NextGen sin instanciar presets grandes
+- [x] Ejecutar un experimento real pequeño que compruebe las mejoras propuestas sin simulaciones
+- [x] Detectar automáticamente FP16 o BF16 según la capacidad real de la GPU gratuita
+- [x] Documentar capacidades esperables, límites y condiciones para aproximarse a calidad frontier
+- [x] Corregir y ejecutar la prueba de estabilidad de routing MoE y replay estratificado
+- [ ] Añadir FSDP o ZeRO antes de intentar la familia Aethel `scale-1b` en varias GPU
+- [x] Documentar presupuestos explícitos de tokens por familia y sus puertas de evaluación
+- [x] Guardar un reporte reproducible de entrenamiento y evaluación con pérdida, salud del router y pérdida de replay
+
 ## Entrenamiento continuo con GPU y corpus masivo
 
 - [x] Diseñar la configuración escalable del modelo Aethel conforme a los límites de cómputo y evaluación verificable
 - [ ] Comparar opciones de infraestructura con GPU persistente y seleccionar una tras autorización de coste y cuenta
-- [ ] Preparar un manifiesto reproducible de corpus abierto, licencia, deduplicación, filtrado y partición de evaluación
+- [x] Preparar un manifiesto reproducible de corpus abierto, licencia, deduplicación, filtrado y partición de evaluación
 - [x] Sustituir el tokenizador por bytes por un tokenizador BPE entrenable y versionado
 - [x] Añadir reanudación exacta, checkpoints reanudables, empaquetado externo y logs de entrenamiento
 - [x] Añadir soporte de entrenamiento distribuido y precisión mixta para GPU
-- [ ] Crear scripts de evaluación reales para MMLU, HumanEval y GSM8K cuando se obtengan sus datasets/harnesses permitidos
+- [x] Crear scripts verificables de MMLU, HumanEval y GSM8K que requieren datasets y predicciones reales
 - [ ] Iniciar una corrida continua únicamente después de que el usuario autorice el proveedor, la cuenta y el presupuesto

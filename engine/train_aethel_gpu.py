@@ -80,7 +80,7 @@ def run(args: argparse.Namespace) -> None:
 
     from tokenizers import Tokenizer
     tokenizer = Tokenizer.from_file(args.tokenizer)
-    config = NextGenConfig(vocab_size=tokenizer.get_vocab_size(), dim=args.dim, layers=args.layers, heads=args.heads, kv_heads=args.kv_heads, experts=args.experts, active_experts=args.active_experts, max_seq_len=args.seq_len, memory_slots=args.memory_slots, replay_capacity=args.replay_capacity)
+    config = NextGenConfig(vocab_size=tokenizer.get_vocab_size(), dim=args.dim, layers=args.layers, heads=args.heads, kv_heads=args.kv_heads, experts=args.experts, active_experts=args.active_experts, max_seq_len=args.seq_len, memory_slots=args.memory_slots, replay_capacity=args.replay_capacity, router_bias_step=args.router_bias_step, router_bias_limit=args.router_bias_limit)
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
     core = AethelNextGen(config, output / f"episodic_rank_{rank}.jsonl").to(device)
@@ -116,6 +116,13 @@ def run(args: argparse.Namespace) -> None:
             with torch.autocast(device_type=autocast_device, dtype=dtype, enabled=device.type == "cuda" and args.precision != "fp32"):
                 _, loss, runtime = model(x, y)
                 total_loss = loss + target.regularization_loss(reference, args.replay_regularization)
+                replay_loss = None
+                if step % args.replay_every == 0:
+                    replay_pairs = target.sleep.sample_pairs(args.seq_len, min(args.batch_size, args.replay_batch_size), device)
+                    if replay_pairs is not None:
+                        replay_x, replay_y = replay_pairs
+                        _, replay_loss, _ = model(replay_x, replay_y)
+                        total_loss = total_loss + args.replay_loss_weight * replay_loss
                 total_loss = total_loss / args.gradient_accumulation
             scaler.scale(total_loss).backward()
             if step % args.gradient_accumulation == 0:
@@ -125,13 +132,17 @@ def run(args: argparse.Namespace) -> None:
                 scaler.update()
                 optimizer.zero_grad(set_to_none=True)
             if step % args.observe_every == 0:
-                target.observe(x[:1], salience=float(loss.detach().float().cpu()))
+                target.observe(torch.cat([x[:1], y[:1, -1:]], dim=1), salience=float(loss.detach().float().cpu()))
             if world_size > 1:
                 dist.broadcast(target.liquid.hebbian_trace, src=0)
                 dist.broadcast(target.memory_state, src=0)
             if rank == 0:
                 elapsed = max(1e-6, time.time() - started)
-                event = {"step": step, "loss": float(loss.detach().float().cpu()), "total_loss": float(total_loss.detach().float().cpu() * args.gradient_accumulation), "tokens_per_second": (step * args.batch_size * args.seq_len * world_size) / elapsed, "world_size": world_size, "device": str(device), "runtime": runtime, "memory": target.export_memory_manifest(), "experts": list(target.core.last_expert_loads), "config": asdict(config)}
+                routing = [layer.feed_forward.last_routing_stats for layer in target.core.layers]
+                max_imbalance = max((item["imbalance"] for item in routing), default=0.0)
+                min_entropy = min((item["entropy"] for item in routing), default=1.0)
+                healthy = max_imbalance <= args.max_router_imbalance and min_entropy >= args.min_router_entropy
+                event = {"step": step, "loss": float(loss.detach().float().cpu()), "replay_loss": float(replay_loss.detach().float().cpu()) if replay_loss is not None else None, "total_loss": float(total_loss.detach().float().cpu() * args.gradient_accumulation), "tokens_per_second": (step * args.batch_size * args.seq_len * world_size) / elapsed, "world_size": world_size, "device": str(device), "runtime": runtime, "memory": target.export_memory_manifest(), "experts": list(target.core.last_expert_loads), "routing": routing, "router_health": {"healthy": healthy, "max_imbalance": max_imbalance, "min_entropy": min_entropy}, "config": asdict(config)}
                 metrics.write(json.dumps(event, ensure_ascii=False) + "\n")
                 metrics.flush()
                 print(json.dumps(event, ensure_ascii=False), flush=True)
@@ -162,6 +173,13 @@ if __name__ == "__main__":
     parser.add_argument("--learning-rate", type=float, default=3e-4)
     parser.add_argument("--weight-decay", type=float, default=0.1)
     parser.add_argument("--replay-regularization", type=float, default=1e-5)
+    parser.add_argument("--replay-loss-weight", type=float, default=0.10)
+    parser.add_argument("--replay-every", type=int, default=200)
+    parser.add_argument("--replay-batch-size", type=int, default=1)
+    parser.add_argument("--router-bias-step", type=float, default=0.05)
+    parser.add_argument("--router-bias-limit", type=float, default=0.5)
+    parser.add_argument("--max-router-imbalance", type=float, default=0.30)
+    parser.add_argument("--min-router-entropy", type=float, default=0.50)
     parser.add_argument("--grad-clip", type=float, default=1.0)
     parser.add_argument("--observe-every", type=int, default=100)
     parser.add_argument("--save-every", type=int, default=1000)

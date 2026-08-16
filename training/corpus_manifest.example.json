@@ -1,6 +1,8 @@
 {
   "version": 1,
   "purpose": "Aethel pretraining pilot; review each source's terms and license before activation.",
+  "approval_required": true,
+  "sources_review": "../CORPUS_SOURCES_REVIEW.md",
   "sources": [
     {
       "id": "common-corpus-multilingual",
@@ -9,6 +11,8 @@
       "split": "train",
       "text_column": "text",
       "streaming": true,
+      "revision": "pin-a-reviewed-dataset-revision-before-enabling",
+      "languages": ["multilingual"],
       "license_review": "required",
       "provenance_url": "https://huggingface.co/datasets/PleIAs/common_corpus",
       "enabled": false
@@ -20,6 +24,8 @@
       "split": "train",
       "text_column": "text",
       "streaming": true,
+      "revision": "pin-a-reviewed-dataset-revision-before-enabling",
+      "languages": ["en"],
       "license_review": "ODC-BY confirmed by the dataset card; operational review still required",
       "provenance_url": "https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu",
       "enabled": false
@@ -31,6 +37,8 @@
       "split": "train",
       "text_column": "raw_content",
       "streaming": true,
+      "revision": "pin-a-reviewed-dataset-revision-before-enabling",
+      "languages": ["es"],
       "license_review": "required: source-level licensing and terms must be approved before activation",
       "provenance_url": "https://huggingface.co/datasets/togethercomputer/RedPajama-Data-V2",
       "enabled": false
@@ -41,7 +49,8 @@
     "max_characters": 50000,
     "remove_simple_pii": true,
     "deduplicate_exact": true,
+    "deduplicate_near": "required-at-scale; use a reviewed MinHash/LSH job before final training",
+    "exclude_evaluation_sets": true,
     "validation_percent": 0.005
   }
 }
-

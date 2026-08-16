@@ -9,7 +9,6 @@ import argparse
 import gzip
 import hashlib
 import json
-import random
 import re
 import unicodedata
 from pathlib import Path
@@ -49,6 +48,16 @@ def write_record(handle: gzip.GzipFile, text: str, source_id: str, digest: str) 
     handle.write((json.dumps({"text": text, "source": source_id, "sha256": digest}, ensure_ascii=False) + "\n").encode("utf-8"))
 
 
+def belongs_to_validation(digest: str, validation_percent: float, seed: int) -> bool:
+    """Asigna cada documento a un split estable, independiente del orden de descarga."""
+    if validation_percent <= 0:
+        return False
+    if validation_percent >= 1:
+        return True
+    bucket = int(hashlib.sha256(f"{seed}:{digest}".encode("utf-8")).hexdigest()[:16], 16)
+    return bucket / float(0xFFFFFFFFFFFFFFFF) < validation_percent
+
+
 def run(args: argparse.Namespace) -> None:
     manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
     filters = manifest.get("filters", {})
@@ -56,9 +65,8 @@ def run(args: argparse.Namespace) -> None:
     max_chars = int(filters.get("max_characters", 50000))
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
-    random.seed(args.seed)
     seen: set[str] = set()
-    counts = {"accepted": 0, "deduplicated": 0, "rejected": 0, "validation": 0}
+    counts = {"accepted": 0, "deduplicated": 0, "rejected": 0, "validation": 0, "sources": {}}
     shard_index = 0
     in_shard = 0
     handle: gzip.GzipFile | None = None
@@ -80,23 +88,29 @@ def run(args: argparse.Namespace) -> None:
         for source in manifest.get("sources", []):
             if not source.get("enabled"):
                 continue
+            source_id = source["id"]
+            counts["sources"][source_id] = {"accepted": 0, "validation": 0, "deduplicated": 0, "rejected": 0}
             for row in iter_source(source, args.allow_network):
                 text = normalize_text(row.get(source.get("text_column", "text")), bool(filters.get("remove_simple_pii", True)))
                 if not text or len(text) < min_chars or len(text) > max_chars or REPEATED_RE.search(text):
                     counts["rejected"] += 1
+                    counts["sources"][source_id]["rejected"] += 1
                     continue
                 digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
                 if filters.get("deduplicate_exact", True) and digest in seen:
                     counts["deduplicated"] += 1
+                    counts["sources"][source_id]["deduplicated"] += 1
                     continue
                 seen.add(digest)
-                if random.random() < float(filters.get("validation_percent", 0.005)):
-                    write_record(validation, text, source["id"], digest)
+                if belongs_to_validation(digest, float(filters.get("validation_percent", 0.005)), args.seed):
+                    write_record(validation, text, source_id, digest)
                     counts["validation"] += 1
+                    counts["sources"][source_id]["validation"] += 1
                 else:
-                    write_record(handle, text, source["id"], digest)
+                    write_record(handle, text, source_id, digest)
                     in_shard += 1
                     counts["accepted"] += 1
+                    counts["sources"][source_id]["accepted"] += 1
                     if in_shard >= args.shard_documents:
                         handle = open_shard()
                 if args.max_documents and counts["accepted"] + counts["validation"] >= args.max_documents:
@@ -106,7 +120,16 @@ def run(args: argparse.Namespace) -> None:
     handle.close()
     for item in shard_hashes:
         item["sha256"] = hashlib.sha256((output / item["path"]).read_bytes()).hexdigest()
-    result = {"input_manifest": str(Path(args.manifest).resolve()), "counts": counts, "shards": shard_hashes, "validation": validation_path.name, "seed": args.seed}
+    result = {
+        "input_manifest": str(Path(args.manifest).resolve()),
+        "input_manifest_sha256": hashlib.sha256(Path(args.manifest).read_bytes()).hexdigest(),
+        "counts": counts,
+        "shards": shard_hashes,
+        "validation": validation_path.name,
+        "validation_sha256": hashlib.sha256(validation_path.read_bytes()).hexdigest(),
+        "filters": filters,
+        "seed": args.seed,
+    }
     (output / "prepared_manifest.json").write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
     print(json.dumps(result, ensure_ascii=False))
 
@@ -120,4 +143,3 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--allow-network", action="store_true")
     run(parser.parse_args())
-

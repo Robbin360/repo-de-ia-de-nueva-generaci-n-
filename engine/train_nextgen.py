@@ -39,6 +39,7 @@ def run(args: argparse.Namespace) -> None:
     model = AethelNextGen(config, args.memory_path).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     reference = {name: parameter.detach().clone() for name, parameter in model.named_parameters()}
+    ema_reference = {name: parameter.detach().clone() for name, parameter in model.named_parameters()}
     checkpoint_dir = Path(args.checkpoint_dir)
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     metrics_path = checkpoint_dir / "nextgen_metrics.jsonl"
@@ -54,9 +55,14 @@ def run(args: argparse.Namespace) -> None:
             total_loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
             optimizer.step()
+            with torch.no_grad():
+                for name, parameter in model.named_parameters():
+                    ema_reference[name].mul_(args.ema_decay).add_(parameter.detach(), alpha=1.0 - args.ema_decay)
             if step % args.observe_every == 0:
                 model.observe(x[:1], salience=float(loss.detach().cpu()))
-            event = {"step": step, "loss": float(loss.detach().cpu()), "total_loss": float(total_loss.detach().cpu()), "elapsed_s": time.time() - start, "device": str(device), "parameters": sum(p.numel() for p in model.parameters()), "memory": model.export_memory_manifest(), "runtime": runtime, "experts": list(model.core.last_expert_loads)}
+            ema_drift = sum((parameter.detach() - ema_reference[name]).float().pow(2).mean() for name, parameter in model.named_parameters()).sqrt()
+            routing = [layer.feed_forward.last_routing_stats for layer in model.core.layers]
+            event = {"step": step, "loss": float(loss.detach().cpu()), "total_loss": float(total_loss.detach().cpu()), "elapsed_s": time.time() - start, "device": str(device), "parameters": sum(p.numel() for p in model.parameters()), "memory": model.export_memory_manifest(), "runtime": runtime, "experts": list(model.core.last_expert_loads), "routing": routing, "ema_drift": float(ema_drift.detach().cpu())}
             metrics.write(json.dumps(event, ensure_ascii=False) + "\n")
             metrics.flush()
             if step % args.save_every == 0 or step == args.steps:
@@ -81,6 +87,7 @@ if __name__ == "__main__":
     parser.add_argument("--weight-decay", type=float, default=0.1)
     parser.add_argument("--replay-regularization", type=float, default=1e-5)
     parser.add_argument("--grad-clip", type=float, default=1.0)
+    parser.add_argument("--ema-decay", type=float, default=0.999)
     parser.add_argument("--observe-every", type=int, default=10)
     parser.add_argument("--save-every", type=int, default=100)
     parser.add_argument("--seed", type=int, default=7)

@@ -25,6 +25,17 @@ assert torch.cuda.is_available(), "Activa Accelerator=GPU en la configuración d
 print({"gpu": torch.cuda.get_device_name(0), "vram_gb": round(torch.cuda.get_device_properties(0).total_memory / 1024**3, 2)})
 PY
 
+# BF16 requiere una GPU Ampere o posterior. P100/T4 usan FP16; se puede forzar con AETHEL_PRECISION.
+if [[ -z "${AETHEL_PRECISION:-}" ]]; then
+  AETHEL_PRECISION=$(python - <<'PY'
+import torch
+from engine.select_precision import select_precision
+print(select_precision(torch.cuda.get_device_capability(0)[0]))
+PY
+)
+fi
+echo "Precision elegida: $AETHEL_PRECISION"
+
 # El corpus preparado debe venir de un manifiesto aprobado. No descargues fuentes masivas en una sesión gratuita.
 test -f "$AETHEL_DATA_DIR/prepared/prepared_manifest.json"
 test -f "$AETHEL_DATA_DIR/tokenizer/aethel-bpe.json"
@@ -43,7 +54,7 @@ python engine/train_aethel_gpu.py \
   --seq-len "${AETHEL_SEQ_LEN:-1024}" \
   --batch-size "${AETHEL_BATCH_SIZE:-2}" \
   --gradient-accumulation "${AETHEL_GRAD_ACCUM:-16}" \
-  --precision bf16 \
+  --precision "$AETHEL_PRECISION" \
   --save-every "${AETHEL_SAVE_EVERY:-500}" \
   --resume
 

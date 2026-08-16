@@ -31,9 +31,11 @@ class NextGenConfig:
     memory_slots: int = 128
     replay_capacity: int = 2048
     memory_decay: float = 0.995
+    router_bias_step: float = 0.05
+    router_bias_limit: float = 0.5
 
     def model_config(self) -> AethelConfig:
-        return AethelConfig(vocab_size=self.vocab_size, dim=self.dim, n_layers=self.layers, n_heads=self.heads, n_kv_heads=self.kv_heads, n_experts=self.experts, active_experts=self.active_experts, max_seq_len=self.max_seq_len)
+        return AethelConfig(vocab_size=self.vocab_size, dim=self.dim, n_layers=self.layers, n_heads=self.heads, n_kv_heads=self.kv_heads, n_experts=self.experts, active_experts=self.active_experts, max_seq_len=self.max_seq_len, router_bias_step=self.router_bias_step, router_bias_limit=self.router_bias_limit)
 
 
 class LaRoca(nn.Module):
@@ -111,14 +113,30 @@ class CicloDeSueno:
     def __init__(self, capacity: int):
         self.capacity = capacity
         self.replay: list[dict] = []
+        self.consolidation_step = 0
 
     def consolidate(self, state: torch.Tensor, tokens: list[int], priority: float) -> None:
-        self.replay.append({"state": state.detach().float().flatten().tolist(), "tokens": tokens, "priority": float(priority)})
-        self.replay.sort(key=lambda item: item["priority"], reverse=True)
-        self.replay = self.replay[: self.capacity]
+        self.consolidation_step += 1
+        signature = sum((index + 1) * token for index, token in enumerate(tokens[:32])) % 1_000_003 if tokens else 0
+        self.replay.append({"state": state.detach().float().flatten().tolist(), "tokens": tokens, "priority": float(priority), "age": self.consolidation_step, "signature": signature})
+        # Conserva recuerdos salientes y diversidad aproximada de secuencias, no solo los más recientes.
+        buckets: dict[int, dict] = {}
+        for item in sorted(self.replay, key=lambda candidate: candidate["priority"] * 0.7 + min(candidate["age"], 10_000) * 1e-7, reverse=True):
+            buckets.setdefault(item["signature"], item)
+        self.replay = sorted(buckets.values(), key=lambda item: item["priority"], reverse=True)[: self.capacity]
 
     def manifest(self) -> dict:
-        return {"replay_records": len(self.replay), "capacity": self.capacity}
+        unique_signatures = len({item["signature"] for item in self.replay})
+        return {"replay_records": len(self.replay), "capacity": self.capacity, "unique_signatures": unique_signatures, "consolidation_step": self.consolidation_step}
+
+    def sample_pairs(self, seq_len: int, batch_size: int, device: torch.device) -> Optional[tuple[torch.Tensor, torch.Tensor]]:
+        """Devuelve pares autoregresivos reales del buffer sin inventar ejemplos."""
+        candidates = [item["tokens"] for item in self.replay if len(item["tokens"]) >= seq_len + 1]
+        if not candidates:
+            return None
+        selected = [candidates[index % len(candidates)] for index in range(batch_size)]
+        stacked = torch.tensor([tokens[: seq_len + 1] for tokens in selected], dtype=torch.long, device=device)
+        return stacked[:, :-1], stacked[:, 1:]
 
 
 class MemoriaEpisodica:
@@ -231,4 +249,4 @@ class AethelNextGen(nn.Module):
         return coefficient * penalty
 
     def export_memory_manifest(self) -> dict:
-        return {"episodic_records": len(self.memory.records), "replay_records": len(self.sleep.replay), "capacity": self.memory.capacity, "path": str(self.memory.path), "liquid": self.liquid.manifest()}
+        return {"episodic_records": len(self.memory.records), "replay": self.sleep.manifest(), "capacity": self.memory.capacity, "path": str(self.memory.path), "liquid": self.liquid.manifest()}
