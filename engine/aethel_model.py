@@ -3,7 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 from typing import Optional, Tuple, List
+from dataclasses import dataclass
 
+@dataclass
 class AethelConfig:
     vocab_size: int = 100288  # tiktoken cl100k_base alineado
     dim: int = 4096
@@ -227,10 +229,13 @@ class AethelModel(nn.Module):
         self, 
         tokens: torch.Tensor, 
         start_pos: int = 0,
-        kv_caches: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = None
+        kv_caches: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = None,
+        memory_state: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor, Optional[List[Tuple[torch.Tensor, torch.Tensor]]]]:
         B, T = tokens.shape
         h = self.tok_embeddings(tokens)
+        if memory_state is not None:
+            h = h + memory_state.unsqueeze(1).to(h.dtype)
         
         # Slice de freqs_cis correspondiente a las posiciones actuales
         freqs_cis = self.freqs_cis[start_pos : start_pos + T]

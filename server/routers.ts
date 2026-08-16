@@ -21,11 +21,8 @@ function contentToText(content: unknown): string {
   return "";
 }
 
-function startTraining(input: { dim: number; layers: number; experts: number; learningRate: number; steps: number }) {
-  const script = join(process.cwd(), "engine", "train_real.py");
-  if (!existsSync(script)) throw new Error("El ejecutor PyTorch real no está instalado en este entorno.");
+function registerTrainingProcess(child: ChildProcessWithoutNullStreams) {
   const id = randomUUID();
-  const child = spawn("python3", [script, "--dim", String(input.dim), "--layers", String(input.layers), "--experts", String(input.experts), "--learning-rate", String(input.learningRate), "--steps", String(input.steps)], { cwd: process.cwd() });
   const job: Job = { id, status: "STARTING", process: child, metrics: [] };
   jobs.set(id, job);
   let buffer = "";
@@ -36,7 +33,10 @@ function startTraining(input: { dim: number; layers: number; experts: number; le
     for (const line of lines) {
       try {
         const event = JSON.parse(line) as Record<string, unknown>;
-        if (event.type === "metric") { job.status = "RUNNING"; job.metrics.push(event); }
+        if (event.type === "metric" || typeof event.step === "number") {
+          job.status = "RUNNING";
+          job.metrics.push({ ...event, type: "metric", elapsed: event.elapsed ?? event.elapsed_s, tokens: event.tokens ?? 0, kv_cache: event.kv_cache ?? null });
+        }
         if (event.type === "complete") { job.status = "COMPLETED"; job.output = String(event.output); }
         if (event.type === "error") { job.status = "FAILED"; job.error = String(event.error); }
       } catch { /* ignore non-JSON framework logs */ }
@@ -44,8 +44,26 @@ function startTraining(input: { dim: number; layers: number; experts: number; le
   });
   child.stderr.on("data", chunk => { job.error = chunk.toString().slice(-2000); });
   child.on("error", error => { job.status = "FAILED"; job.error = error.message; });
-  child.on("close", code => { if (code !== 0 && job.status !== "FAILED") { job.status = "FAILED"; job.error ??= `El proceso terminó con código ${code}`; } });
+  child.on("close", code => {
+    if (code === 0 && job.status !== "FAILED") job.status = "COMPLETED";
+    if (code !== 0 && job.status !== "FAILED") { job.status = "FAILED"; job.error ??= `El proceso terminó con código ${code}`; }
+  });
   return id;
+}
+
+function startTraining(input: { dim: number; layers: number; experts: number; learningRate: number; steps: number }) {
+  const script = join(process.cwd(), "engine", "train_real.py");
+  if (!existsSync(script)) throw new Error("El ejecutor PyTorch real no está instalado en este entorno.");
+  const child = spawn("python3", [script, "--dim", String(input.dim), "--layers", String(input.layers), "--experts", String(input.experts), "--learning-rate", String(input.learningRate), "--steps", String(input.steps)], { cwd: process.cwd() });
+  return registerTrainingProcess(child);
+}
+
+function startNextGenTraining(input: { dim: number; layers: number; experts: number; learningRate: number; steps: number; seqLen: number; batchSize: number }) {
+  const script = join(process.cwd(), "engine", "train_nextgen.py");
+  const corpus = join(process.cwd(), "engine", "corpora", "aethel_repo_corpus.txt");
+  if (!existsSync(script) || !existsSync(corpus)) throw new Error("El ejecutor o corpus real de Aethel NextGen no está instalado en este entorno.");
+  const child = spawn("python3", [script, "--corpus", corpus, "--dim", String(input.dim), "--layers", String(input.layers), "--experts", String(input.experts), "--learning-rate", String(input.learningRate), "--steps", String(input.steps), "--seq-len", String(input.seqLen), "--batch-size", String(input.batchSize)], { cwd: process.cwd() });
+  return registerTrainingProcess(child);
 }
 
 export const appRouter = router({
@@ -76,6 +94,7 @@ export const appRouter = router({
   }),
   training: router({
     start: publicProcedure.input(z.object({ dim: z.number().int().min(64).max(1024), layers: z.number().int().min(1).max(8), experts: z.number().int().min(1).max(8), learningRate: z.number().min(0.000001).max(0.01), steps: z.number().int().min(1).max(1000).default(20) })).mutation(({ input }) => ({ jobId: startTraining(input), status: "STARTING" as const })),
+    nextgenStart: publicProcedure.input(z.object({ dim: z.number().int().min(64).max(1024), layers: z.number().int().min(1).max(8), experts: z.number().int().min(1).max(8), learningRate: z.number().min(0.000001).max(0.01), steps: z.number().int().min(1).max(100000).default(1000), seqLen: z.number().int().min(16).max(512).default(128), batchSize: z.number().int().min(1).max(16).default(2) })).mutation(({ input }) => ({ jobId: startNextGenTraining(input), status: "STARTING" as const })),
     status: publicProcedure.input(z.object({ jobId: z.string().uuid() })).query(({ input }) => { const job = jobs.get(input.jobId); if (!job) return { status: "NOT_FOUND" as const, metrics: [], error: "Proceso no encontrado en este servidor." }; return { status: job.status, metrics: job.metrics, error: job.error, output: job.output }; }),
   }),
   benchmarks: router({
