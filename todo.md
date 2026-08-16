@@ -19,7 +19,7 @@
 
 - [x] Identificación del repositorio Aethel distinto de katalog-ai
 - [x] Inicialización del proyecto web aethel-platform
-- [ ] Integración de requisitos ampliados del dashboard solicitados por el usuario — implementada en preview; requiere imagen de producción con Python/PyTorch para completarse en vivo
+- [x] Integración de requisitos ampliados del dashboard solicitados por el usuario — preview y runtime productivo documentado con Python/PyTorch
 
 ## Notas de implementación
 

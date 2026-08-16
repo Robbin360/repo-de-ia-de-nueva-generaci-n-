@@ -11,7 +11,7 @@ Aethel no genera telemetría sintética. El chat usa el LLM real integrado en el
 | Memoria suficiente | Depende de `dim`, `capas`, `expertos` y `pasos` |
 | GPU CUDA opcional | Acelerar el entrenamiento y reportar VRAM real |
 
-En un entorno Node-only sin Python o PyTorch, el endpoint devuelve un error explícito y el panel muestra `NOT_CONNECTED`; no se sustituyen las métricas por valores inventados. Los checkpoints se escriben en `engine/artifacts/` cuando el proceso completa correctamente.
+El proyecto incluye un `Dockerfile` de producción que añade Python, un entorno virtual y PyTorch CPU al contenedor Node. En un entorno Node-only sin Python o PyTorch, el endpoint devuelve un error explícito y el panel muestra `NOT_CONNECTED`; no se sustituyen las métricas por valores inventados. Los checkpoints se escriben en `engine/artifacts/` cuando el proceso completa correctamente.
 
 ## Endpoints operativos
 
