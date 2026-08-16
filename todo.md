@@ -62,3 +62,38 @@
 - [x] Actualizar telemetría y documentación con el mapa arquitectónico definitivo
 
 - [x] Corregir el broadcast de memoria recuperada cuando el batch tiene más de una secuencia y repetir la evaluación alineada
+
+## Entrenamiento continuo con GPU y corpus masivo
+
+- [x] Diseñar la configuración escalable del modelo Aethel conforme a límites de cómputo y evaluación verificable
+- [ ] Comparar opciones de infraestructura con GPU persistente y seleccionar una tras autorización de coste y cuenta
+- [ ] Preparar un manifiesto reproducible de corpus abierto, licencia, deduplicación, filtrado y partición de evaluación
+- [x] Sustituir el tokenizador por bytes por un tokenizador BPE entrenable y versionado
+- [x] Añadir reanudación exacta, checkpoints reanudables, empaquetado externo y logs de entrenamiento
+- [x] Añadir soporte de precisión mixta y entrenamiento distribuido para GPU
+- [ ] Crear harnesses reales de MMLU, HumanEval y GSM8K cuando se disponga de los datasets y permisos aplicables
+- [ ] Iniciar una corrida continua solo después de autorizar proveedor, cuenta y presupuesto
+- [x] Corregir la acumulación de gradiente del runner GPU y validarla con una corrida mínima local
+
+## Primera corrida gratuita temporal
+
+- [x] Comparar opciones gratuitas reales de GPU y sesiones temporales para la primera corrida de Aethel
+- [x] Preparar el lanzamiento reproducible de Aethel para Kaggle Notebooks con GPU
+- [x] Mantener checkpoints, manifiesto de datos y telemetría fuera del almacenamiento efímero
+- [x] Documentar la transición desde la sesión gratuita a la GPU persistente autorizada
+- [x] Implementar exportación automática de checkpoints, manifiesto y métricas a un destino persistente verificable
+- [x] Probar que el runner confirma la escritura de artefactos persistentes antes de finalizar una sesión temporal
+- [x] Ejecutar un runner local equivalente que confirme la persistencia de checkpoint, manifiesto y métricas antes de salir
+- [x] Probar el bloqueo cuando falta AETHEL_KAGGLE_DATASET y la ruta de exportación exitosa mediante un CLI Kaggle simulado
+- [x] Ejecutar un flujo completo equivalente que entrene un modelo mínimo y exporte sus artefactos persistentes antes de salir
+
+## Entrenamiento continuo con GPU y corpus masivo
+
+- [x] Diseñar la configuración escalable del modelo Aethel conforme a los límites de cómputo y evaluación verificable
+- [ ] Comparar opciones de infraestructura con GPU persistente y seleccionar una tras autorización de coste y cuenta
+- [ ] Preparar un manifiesto reproducible de corpus abierto, licencia, deduplicación, filtrado y partición de evaluación
+- [x] Sustituir el tokenizador por bytes por un tokenizador BPE entrenable y versionado
+- [x] Añadir reanudación exacta, checkpoints reanudables, empaquetado externo y logs de entrenamiento
+- [x] Añadir soporte de entrenamiento distribuido y precisión mixta para GPU
+- [ ] Crear scripts de evaluación reales para MMLU, HumanEval y GSM8K cuando se obtengan sus datasets/harnesses permitidos
+- [ ] Iniciar una corrida continua únicamente después de que el usuario autorice el proveedor, la cuenta y el presupuesto

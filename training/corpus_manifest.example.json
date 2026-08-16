@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "purpose": "Aethel pretraining pilot; review each source's terms and license before activation.",
+  "sources": [
+    {
+      "id": "common-corpus-multilingual",
+      "dataset": "PleIAs/common_corpus",
+      "config": null,
+      "split": "train",
+      "text_column": "text",
+      "streaming": true,
+      "license_review": "required",
+      "provenance_url": "https://huggingface.co/datasets/PleIAs/common_corpus",
+      "enabled": false
+    },
+    {
+      "id": "fineweb-edu-pilot",
+      "dataset": "HuggingFaceFW/fineweb-edu",
+      "config": "sample-10BT",
+      "split": "train",
+      "text_column": "text",
+      "streaming": true,
+      "license_review": "ODC-BY confirmed by the dataset card; operational review still required",
+      "provenance_url": "https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu",
+      "enabled": false
+    },
+    {
+      "id": "redpajama-es-pilot",
+      "dataset": "togethercomputer/RedPajama-Data-V2",
+      "config": "default",
+      "split": "train",
+      "text_column": "raw_content",
+      "streaming": true,
+      "license_review": "required: source-level licensing and terms must be approved before activation",
+      "provenance_url": "https://huggingface.co/datasets/togethercomputer/RedPajama-Data-V2",
+      "enabled": false
+    }
+  ],
+  "filters": {
+    "min_characters": 200,
+    "max_characters": 50000,
+    "remove_simple_pii": true,
+    "deduplicate_exact": true,
+    "validation_percent": 0.005
+  }
+}
+
