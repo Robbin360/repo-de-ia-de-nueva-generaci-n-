@@ -23,7 +23,12 @@ python engine/train_tokenizer.py \
   --output "$AETHEL_DATA_DIR/tokenizer/aethel-bpe.json" \
   --vocab-size "${AETHEL_VOCAB_SIZE:-32000}"
 
-torchrun --standalone --nproc_per_node="${AETHEL_GPUS:-1}" engine/train_aethel_gpu.py \
+GPUS="${AETHEL_GPUS:-1}"
+STRATEGY="${AETHEL_STRATEGY:-single}"
+if [[ "$GPUS" -gt 1 && "$STRATEGY" == "single" ]]; then STRATEGY="ddp"; fi
+
+torchrun --standalone --nproc_per_node="$GPUS" engine/train_aethel_gpu.py \
+  --strategy "$STRATEGY" \
   --corpus-dir "$AETHEL_DATA_DIR/prepared" \
   --tokenizer "$AETHEL_DATA_DIR/tokenizer/aethel-bpe.json" \
   --output "$AETHEL_RUN_DIR" \
@@ -37,6 +42,5 @@ torchrun --standalone --nproc_per_node="${AETHEL_GPUS:-1}" engine/train_aethel_g
   --seq-len "${AETHEL_SEQ_LEN:-2048}" \
   --batch-size "${AETHEL_BATCH_SIZE:-2}" \
   --gradient-accumulation "${AETHEL_GRAD_ACCUM:-16}" \
-  --precision bf16 \
+  --precision "${AETHEL_PRECISION:-bf16}" \
   --resume
-

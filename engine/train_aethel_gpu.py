@@ -1,10 +1,10 @@
-"""Entrenamiento GPU reanudable de Aethel con tokenizador BPE y soporte torchrun/DDP.
+"""Entrenamiento GPU reanudable de Aethel con tokenizador BPE y soporte torchrun/DDP/FSDP.
 
 Ejemplo de una GPU:
   python engine/train_aethel_gpu.py --corpus-dir /data/aethel --tokenizer /data/tokenizer.json --output /data/runs/aethel-100m
 
 Ejemplo de varias GPU:
-  torchrun --standalone --nproc_per_node=8 engine/train_aethel_gpu.py --corpus-dir /data/aethel --tokenizer /data/tokenizer.json --output /data/runs/aethel-1b
+  torchrun --standalone --nproc_per_node=8 engine/train_aethel_gpu.py --strategy fsdp --corpus-dir /data/aethel --tokenizer /data/tokenizer.json --output /data/runs/aethel-1b
 """
 from __future__ import annotations
 
@@ -28,10 +28,13 @@ def distributed_setup() -> tuple[int, int, torch.device]:
     rank = int(os.environ.get("RANK", "0"))
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
     if world_size > 1:
-        dist.init_process_group("nccl")
-        local_rank = int(os.environ["LOCAL_RANK"])
-        torch.cuda.set_device(local_rank)
-        return rank, world_size, torch.device("cuda", local_rank)
+        backend = "nccl" if torch.cuda.is_available() else "gloo"
+        dist.init_process_group(backend)
+        if torch.cuda.is_available():
+            local_rank = int(os.environ["LOCAL_RANK"])
+            torch.cuda.set_device(local_rank)
+            return rank, world_size, torch.device("cuda", local_rank)
+        return rank, world_size, torch.device("cpu")
     return rank, world_size, torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -70,6 +73,40 @@ def atomic_save(payload: dict, path: Path) -> None:
     temporary.replace(path)
 
 
+def build_model(core: AethelNextGen, args: argparse.Namespace, world_size: int, device: torch.device):
+    """Envuelve el núcleo sin imponer sharding a los pilotos de una GPU."""
+    if args.strategy == "fsdp":
+        if world_size < 2 or device.type != "cuda":
+            raise RuntimeError("FSDP exige torchrun con al menos dos GPU CUDA; use --strategy single o ddp fuera de ese caso.")
+        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+
+        return FSDP(core, device_id=device, use_orig_params=True, sync_module_states=True)
+    if args.strategy == "ddp":
+        if world_size < 2:
+            raise RuntimeError("DDP exige torchrun con al menos dos procesos.")
+        return DDP(core, device_ids=[device.index] if device.type == "cuda" else None, broadcast_buffers=True)
+    if world_size > 1:
+        raise RuntimeError("torchrun detectó varios procesos: seleccione --strategy ddp o --strategy fsdp.")
+    return core
+
+
+def unwrap_model(model: torch.nn.Module) -> AethelNextGen:
+    return model.module if isinstance(model, DDP) or hasattr(model, "module") else model  # type: ignore[return-value]
+
+
+def fsdp_checkpoint_state(model: torch.nn.Module, optimizer: torch.optim.Optimizer, strategy: str) -> tuple[dict, dict | None]:
+    """Obtiene estado completo en rango 0, con participación de todos los rangos FSDP."""
+    if strategy != "fsdp":
+        return model.state_dict(), optimizer.state_dict()
+    from torch.distributed.fsdp import FullStateDictConfig, FullyShardedDataParallel as FSDP, StateDictType
+
+    config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+    with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT, config):
+        model_state = model.state_dict()
+    optimizer_state = FSDP.full_optim_state_dict(model, optimizer, rank0_only=True)
+    return model_state, optimizer_state
+
+
 def run(args: argparse.Namespace) -> None:
     rank, world_size, device = distributed_setup()
     random.seed(args.seed + rank)
@@ -84,19 +121,28 @@ def run(args: argparse.Namespace) -> None:
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
     core = AethelNextGen(config, output / f"episodic_rank_{rank}.jsonl").to(device)
-    model = DDP(core, device_ids=[device.index] if device.type == "cuda" else None, broadcast_buffers=True) if world_size > 1 else core
+    model = build_model(core, args, world_size, device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay, betas=(0.9, 0.95))
     scaler = torch.amp.GradScaler("cuda", enabled=device.type == "cuda" and args.precision == "fp16")
     start_step = 0
     checkpoint_path = output / "latest.pt"
     if args.resume and checkpoint_path.exists():
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
-        target = model.module if isinstance(model, DDP) else model
-        target.load_state_dict(checkpoint["model"])
-        optimizer.load_state_dict(checkpoint["optimizer"])
+        target = unwrap_model(model)
+        if args.strategy == "fsdp":
+            from torch.distributed.fsdp import FullStateDictConfig, FullyShardedDataParallel as FSDP, StateDictType
+
+            state_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=False)
+            with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT, state_config):
+                model.load_state_dict(checkpoint["model"])
+            optimizer_state = FSDP.scatter_full_optim_state_dict(checkpoint["optimizer"], model)
+            optimizer.load_state_dict(optimizer_state)
+        else:
+            target.load_state_dict(checkpoint["model"])
+            optimizer.load_state_dict(checkpoint["optimizer"])
         start_step = int(checkpoint["step"])
 
-    target = model.module if isinstance(model, DDP) else model
+    target = unwrap_model(model)
     reference = {name: parameter.detach().clone() for name, parameter in target.named_parameters()}
     batches = token_batches(Path(args.corpus_dir), Path(args.tokenizer), args.seq_len, args.batch_size, rank, world_size)
     metrics_path = output / f"metrics_rank_{rank}.jsonl"
@@ -146,9 +192,13 @@ def run(args: argparse.Namespace) -> None:
                 metrics.write(json.dumps(event, ensure_ascii=False) + "\n")
                 metrics.flush()
                 print(json.dumps(event, ensure_ascii=False), flush=True)
-                if step % args.save_every == 0 or step == args.max_steps:
-                    atomic_save({"model": target.state_dict(), "optimizer": optimizer.state_dict(), "step": step, "config": asdict(config), "event": event, "tokenizer": str(Path(args.tokenizer).resolve())}, checkpoint_path)
-                    atomic_save({"model": target.state_dict(), "step": step, "config": asdict(config)}, output / f"step_{step:08d}.pt")
+            if step % args.save_every == 0 or step == args.max_steps:
+                model_state, optimizer_state = fsdp_checkpoint_state(model, optimizer, args.strategy)
+                if rank == 0:
+                    atomic_save({"model": model_state, "optimizer": optimizer_state, "step": step, "config": asdict(config), "event": event, "tokenizer": str(Path(args.tokenizer).resolve()), "strategy": args.strategy}, checkpoint_path)
+                    atomic_save({"model": model_state, "step": step, "config": asdict(config), "strategy": args.strategy}, output / f"step_{step:08d}.pt")
+                if world_size > 1:
+                    dist.barrier()
     if world_size > 1:
         dist.destroy_process_group()
 
@@ -184,6 +234,7 @@ if __name__ == "__main__":
     parser.add_argument("--observe-every", type=int, default=100)
     parser.add_argument("--save-every", type=int, default=1000)
     parser.add_argument("--precision", choices=["bf16", "fp16", "fp32"], default="bf16")
+    parser.add_argument("--strategy", choices=["single", "ddp", "fsdp"], default="single")
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--resume", action="store_true")
     run(parser.parse_args())

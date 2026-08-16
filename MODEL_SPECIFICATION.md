@@ -24,6 +24,8 @@ python engine/report_model_budget.py --preset all
 
 La columna de AdamW comprende pesos BF16, gradientes BF16 y los dos estados FP32; no incluye activaciones, caché KV, memoria temporal de MoE ni la sobrecarga del runtime. Por ello no se debe elegir hardware usando solo esta cifra. El runner soporta **DDP** para replicación de datos; la familia `scale-1b` permanece bloqueada hasta incorporar FSDP o ZeRO, que distribuyan estados y parámetros en lugar de replicarlos.
 
+El runner ahora incorpora **FSDP** (`--strategy fsdp`) para repartir parámetros, gradientes y estados del optimizador entre varias GPU, guardando un checkpoint completo solo en rango 0 y reconstruyéndolo al reanudar. El preset `scale-1b` debe invocarse con `torchrun`, al menos dos GPU CUDA, una mezcla de datos aprobada y FSDP; la estrategia DDP se mantiene para investigación de hasta 300M parámetros cuando la VRAM permita replicar el modelo completo.
+
 ## Presupuesto de tokens y puertas de avance
 
 | Familia | Presupuesto de tokens | Currículo | Puertas antes de avanzar |
