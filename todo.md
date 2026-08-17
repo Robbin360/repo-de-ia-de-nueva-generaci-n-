@@ -220,5 +220,6 @@
 - [x] Hacer que la celda de Kaggle priorice por contenido el bundle que incluye olc-pd-books-en frente a bundles antiguos montados simultáneamente
 - [x] Resolver HTTP 502 recurrente de OLC o sustituirlo por una fuente inglesa real más estable sin relajar el mínimo de 14.000
 - [ ] Ejecutar una puerta remota que confirme los conteos inglés/español antes de iniciar entrenamiento
-- [ ] Subir el bundle regenerado como nueva versión del Dataset privado `aethel-nextgen-source`
+- [x] Subir el bundle regenerado como nueva versión del Dataset privado `aethel-nextgen-source`
 - [ ] Confirmar en Kaggle que la entrada montada contiene el bundle con `project-gutenberg-en` y ejecutar Save Version → Save & Run All
+- [x] Subir el bundle validado con Project Gutenberg como nueva versión del Dataset privado de Kaggle y verificar su contenido
