@@ -102,7 +102,7 @@
 - [ ] Validar FSDP antes de intentar la familia Aethel `scale-1b` en varias GPU (requiere al menos 2 GPU CUDA reales)
 - [x] Corregir y ejecutar la prueba de rechazo FSDP sin varias GPU CUDA
 - [ ] Ejecutar una prueba reproducible de FSDP en al menos dos procesos/GPU que valide entrenamiento, checkpoint rango 0 y reanudación (bloqueada hasta disponer de GPU CUDA)
-- [ ] Añadir una prueba automatizada de la rama FSDP que registre estado y recuperación distribuida (bloqueada hasta disponer de GPU CUDA)
+- [x] Añadir una prueba automatizada de la rama FSDP que registre estado y recuperación distribuida; su ejecución queda bloqueada hasta disponer de GPU CUDA
 - [x] Documentar presupuestos explícitos de tokens por familia y sus puertas de evaluación
 - [x] Guardar un reporte reproducible de entrenamiento y evaluación con pérdida, salud del router y pérdida de replay
 

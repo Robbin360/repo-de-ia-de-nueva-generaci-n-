@@ -28,6 +28,16 @@ Aethel no se define como una emulación literal de un cerebro humano. Es un mode
 
 La primera meta realista es validar una configuración de **100M–300M parámetros**, no afirmar equivalencia con modelos frontier. Tras pruebas de escalabilidad, datos, pérdidas y benchmarks reproducibles, se podrá decidir si una variante de 1B+ parámetros justifica un clúster multi-GPU.
 
+## Validación FSDP obligatoria
+
+Antes de crear una corrida de la familia `scale-1b`, ejecutar en un host con al menos dos GPU CUDA:
+
+```bash
+bash training/run_fsdp_validation.sh
+```
+
+La prueba usa `torchrun` con dos procesos, ejecuta FSDP real durante un paso, comprueba que sólo el rango 0 persiste `latest.pt`, reanuda hasta el paso dos y verifica los registros de ambos rangos. En un host sin dos GPU CUDA imprime `SKIPPED`; eso no equivale a una validación aprobada.
+
 ## Corpus y gobierno de datos
 
 La ingesta se realizará con un manifiesto versionado, hashes, filtros, deduplicación, detección de PII y particiones separadas de entrenamiento, validación y pruebas. Para un piloto multilingüe y auditable se priorizarán fuentes con documentación explícita de procedencia y licencia. FineWeb-Edu declara licencia ODC-BY y ofrece subconjuntos de muestra; Common Corpus comunica contenido con licencia permisiva, procedencia y cobertura en español; RedPajama-V2 ofrece señales de calidad y deduplicación, pero requiere una revisión jurídica adicional de cada fuente antes de uso productivo.
