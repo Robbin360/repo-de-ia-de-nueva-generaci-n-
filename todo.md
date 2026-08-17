@@ -175,6 +175,15 @@
 - [x] Añadir comparativas reproducibles contra la configuración base para pérdida, estabilidad de router, memoria y coste de cómputo
 - [x] Revisar el manifiesto de corpus, la receta de entrenamiento y las puertas de evaluación antes de usar una cuenta GPU
 - [x] Preparar un checklist de autorización explícita que separe acceso de cuenta, selección de GPU, límite de gasto e inicio de corrida
+
+## Primera validación con cuota gratuita
+
+- [x] Verificar opciones vigentes de cuota gratuita con GPU CUDA para una validación inicial de Aethel
+- [x] Comparar límites, persistencia de artefactos y compatibilidad con el preflight Triton/FSDP sin crear recursos de pago
+- [ ] Preparar la opción gratuita seleccionada y pedir confirmación antes de iniciar cualquier sesión
+- [x] Verificar y preparar el cuaderno de Kaggle, el manifiesto aprobado y los artefactos de exportación sin habilitar una sesión GPU
+- [x] Integrar el validador aprobado de corpus y evaluación en el lanzador Kaggle antes de instalar dependencias o usar GPU
+- [ ] Comprobar el acceso de la cuenta Kaggle en el navegador sin crear notebook ni consumir cuota
 - [x] Añadir una validación automática de preparación que rechace manifiestos no aprobados o rutas de evaluación incompletas antes de lanzar GPU
 - [x] Integrar el validador de preparación en el launcher GPU para abortar antes de cualquier descarga o entrenamiento si falla
 - [x] Exigir revisiones inmutables aprobadas y entradas de evaluación configuradas antes de permitir un lanzamiento GPU

@@ -1,6 +1,6 @@
 # Celdas para un Kaggle Notebook de Aethel
 
-Configura **Accelerator = GPU** y añade dos datasets privados de entrada: `aethel-source`, que contiene este repositorio sin checkpoints pesados, y `aethel-data`, que contiene el corpus preparado aprobado y el BPE. Después ejecuta estas celdas, una por una.
+Configura **Accelerator = GPU** y añade dos datasets privados de entrada: `aethel-source`, que contiene este repositorio sin checkpoints pesados, y `aethel-data`, que contiene el corpus preparado aprobado, el BPE y `evaluation/evaluation_plan.json`. El lanzador rechaza la sesión antes de instalar paquetes si el manifiesto, el holdout, el tokenizador o las referencias de benchmark no están aprobados y accesibles. Después ejecuta estas celdas, una por una.
 
 ```bash
 %env AETHEL_KAGGLE_DATASET=TU_USUARIO/aethel-artifacts-privado

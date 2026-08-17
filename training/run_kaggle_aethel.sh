@@ -8,6 +8,7 @@ set -euo pipefail
 : "${AETHEL_DATA_DIR:=/kaggle/input/aethel-data}"
 : "${AETHEL_OUTPUT_DIR:=/kaggle/working/aethel-runs/nextgen-pilot}"
 : "${AETHEL_KAGGLE_DATASET:=}"
+: "${AETHEL_EVALUATION_CONFIG:=$AETHEL_DATA_DIR/evaluation/evaluation_plan.json}"
 
 if [[ -z "$AETHEL_KAGGLE_DATASET" ]]; then
   echo "Falta AETHEL_KAGGLE_DATASET=usuario/dataset-privado; no se permite iniciar sin persistencia de artefactos." >&2
@@ -17,6 +18,16 @@ fi
 rm -rf "$AETHEL_WORK_DIR"
 cp -R "$AETHEL_SOURCE_DIR" "$AETHEL_WORK_DIR"
 cd "$AETHEL_WORK_DIR"
+
+# Esta puerta corre antes de instalar dependencias o reservar una GPU útil.
+# El Dataset de datos debe incluir el manifiesto ya aprobado y sus rutas de evaluación.
+python training/validate_training_readiness.py \
+  --manifest "$AETHEL_DATA_DIR/prepared/prepared_manifest.json" \
+  --curriculum TRAINING_CURRICULUM.md \
+  --benchmarks training/BENCHMARK_PROTOCOL.md \
+  --evaluation-config "$AETHEL_EVALUATION_CONFIG" \
+  --require-approved \
+  --output "$AETHEL_WORK_DIR/training-readiness.json"
 
 python -m pip install --quiet -r training/requirements.txt
 python - <<'PY'
@@ -36,8 +47,7 @@ PY
 fi
 echo "Precision elegida: $AETHEL_PRECISION"
 
-# El corpus preparado debe venir de un manifiesto aprobado. No descargues fuentes masivas en una sesión gratuita.
-test -f "$AETHEL_DATA_DIR/prepared/prepared_manifest.json"
+# El corpus ya fue comprobado por el preflight anterior. No descargues fuentes masivas en una sesión gratuita.
 test -f "$AETHEL_DATA_DIR/tokenizer/aethel-bpe.json"
 
 python engine/train_aethel_gpu.py \
