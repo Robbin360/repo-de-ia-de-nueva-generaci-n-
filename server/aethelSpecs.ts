@@ -48,6 +48,14 @@ export function getAethelSpecification() {
       observable: "Se registran las fuentes de memoria y los pesos del Espacio de Trabajo Global.",
       privacy: "No se expone cadena de pensamiento interna; se presentan resultados, evidencia y límites verificables.",
     },
+    technology: [
+      "**Python + PyTorch:** investigación, entrenamiento, memoria y evaluación; implementado.",
+      "**Triton + CUDA:** kernels fusionados de GPU, incluido SwiGLU; implementado en el repositorio original y pendiente de integración GPU en este runner.",
+      "**Rust + Candle:** runtime de inferencia de producción documentado en `rust_engine/`; previsto para exportación del modelo.",
+      "**TypeScript / Node.js:** ecosistema, evaluaciones, gateway y dashboard; implementado.",
+      "**C++:** conexión nativa futura mencionada por la interfaz original; no hay fuentes C++ en la clonación auditada.",
+      "**C#:** no se encontraron archivos ni referencias verificables en la clonación auditada; requiere confirmar otra rama o documento.",
+    ],
     limitations: ["Las capacidades requieren entrenamiento con corpus y evaluación real.", "No hay puntuaciones MMLU, GSM8K o HumanEval hasta ejecutar sus harnesses con predicciones reales.", "FSDP y la familia scale-1b requieren al menos dos GPU CUDA reales y validación distribuida."],
   };
 }
@@ -56,5 +64,6 @@ export function formatAethelSpecificationForChat(runtime: AethelRuntimeSnapshot)
   const specification = getAethelSpecification();
   const rows = specification.presets.map(item => `| ${item.name} | ${item.parametersMillions.toFixed(2)} M | ${item.activeExpertFraction} | ${item.context.toLocaleString("es-ES")} | ${item.estimatedOptimizerGib.toFixed(2)} GiB |`).join("\n");
   const activeConfig = runtime.config && Object.keys(runtime.config).length ? Object.entries(runtime.config).map(([key, value]) => `${key}=${String(value)}`).join(", ") : "sin proceso activo";
-  return `## Ficha técnica verificable de Aethel NextGen\n\n### Configuración activa\n- **Modo cognitivo:** \`${runtime.mode}\`\n- **Motor:** \`${runtime.status}\`\n- **Configuración de proceso:** ${activeConfig}\n\n| Familia | Parámetros totales | Expertos activos | Contexto | AdamW estimado |\n|---|---:|---:|---:|---:|\n${rows}\n\n### Memoria implementada\n- **Trabajo:** ${specification.memory.working}\n- **Episódica:** ${specification.memory.episodic}\n- **Semántica:** ${specification.memory.semantic}\n- **Consolidación:** ${specification.memory.consolidation}\n\n### Razonamiento observable\nEl protocolo operativo es **recuperación → integración → predicción**. ${specification.reasoning.observable} ${specification.reasoning.privacy}\n\n### Límites actuales\n${specification.limitations.map(item => `- ${item}`).join("\n")}`;
+  const technology = specification.technology.map(item => `- ${item}`).join("\n");
+  return `## Ficha técnica verificable de Aethel NextGen\n\n### Configuración activa\n- **Modo cognitivo:** \`${runtime.mode}\`\n- **Motor:** \`${runtime.status}\`\n- **Configuración de proceso:** ${activeConfig}\n\n| Familia | Parámetros totales | Expertos activos | Contexto | AdamW estimado |\n|---|---:|---:|---:|---:|\n${rows}\n\n### Memoria implementada\n- **Trabajo:** ${specification.memory.working}\n- **Episódica:** ${specification.memory.episodic}\n- **Semántica:** ${specification.memory.semantic}\n- **Consolidación:** ${specification.memory.consolidation}\n\n### Razonamiento observable\nEl protocolo operativo es **recuperación → integración → predicción**. ${specification.reasoning.observable} ${specification.reasoning.privacy}\n\n### Stack tecnológico del repositorio original\n${technology}\n\n### Límites actuales\n${specification.limitations.map(item => `- ${item}`).join("\n")}`;
 }

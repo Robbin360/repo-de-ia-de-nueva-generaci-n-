@@ -247,6 +247,25 @@ class WorkingMemory(nn.Module):
         return self.norm(self.update(observation, state))
 
 
+class LoRALinear(nn.Module):
+    """Adaptador de bajo rango que conserva la proyección base sin modificarla."""
+
+    def __init__(self, base: nn.Linear, rank: int, alpha: float):
+        super().__init__()
+        if rank < 1:
+            raise ValueError("LoRA requiere rango positivo")
+        self.base = base
+        self.rank = rank
+        self.scaling = alpha / rank
+        self.lora_a = nn.Parameter(torch.empty(rank, base.in_features))
+        self.lora_b = nn.Parameter(torch.zeros(base.out_features, rank))
+        nn.init.kaiming_uniform_(self.lora_a, a=5**0.5)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        adaptation = F.linear(F.linear(x, self.lora_a), self.lora_b) * self.scaling
+        return self.base(x) + adaptation
+
+
 class AethelNextGen(nn.Module):
     """La arquitectura documentada compuesta en un núcleo entrenable."""
 
@@ -265,7 +284,29 @@ class AethelNextGen(nn.Module):
         self.working_memory = WorkingMemory(config.dim)
         self.memory_to_core = nn.Linear(config.dim, config.dim, bias=False)
         self.register_buffer("memory_state", torch.zeros(1, config.dim), persistent=False)
+        self.lora_config: dict | None = None
         self.last_metrics: dict = {"memory_hits": 0, "memory_records": len(self.memory.records), "semantic_records": len(self.semantic_memory.records), "replay_records": 0, "pillar": "Aethel NextGen"}
+
+    def enable_lora(self, rank: int = 8, alpha: float = 16.0, freeze_base: bool = True) -> dict:
+        """Añade LoRA a Q/K/V/O y SwiGLU de cada experto; es opt-in y auditable."""
+        if self.lora_config is not None:
+            raise RuntimeError("Los adaptadores LoRA ya están habilitados")
+        if freeze_base:
+            for parameter in self.parameters():
+                parameter.requires_grad = False
+        replaced = 0
+        for layer in self.core.layers:
+            for name in ("wq", "wk", "wv", "wo"):
+                setattr(layer.attention, name, LoRALinear(getattr(layer.attention, name), rank, alpha))
+                replaced += 1
+            for expert in layer.feed_forward.experts:
+                for name in ("w1", "w2", "w3"):
+                    setattr(expert, name, LoRALinear(getattr(expert, name), rank, alpha))
+                    replaced += 1
+        self.lora_config = {"rank": rank, "alpha": alpha, "freeze_base": freeze_base, "targets": replaced}
+        trainable = sum(parameter.numel() for parameter in self.parameters() if parameter.requires_grad)
+        total = sum(parameter.numel() for parameter in self.parameters())
+        return {**self.lora_config, "parameters_total": total, "parameters_trainable": trainable, "trainable_fraction": trainable / total}
 
     def reset_session(self) -> None:
         self.memory_state = torch.zeros_like(self.memory_state)

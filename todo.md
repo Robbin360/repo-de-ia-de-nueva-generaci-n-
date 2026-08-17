@@ -135,3 +135,14 @@
 - [x] Exponer en la ficha técnica del chat el modo cognitivo activo y la configuración verificable del motor cuando exista un proceso real
 - [x] Añadir una prueba automatizada del flujo de ficha técnica en `chat.send` sin invocar una salida LLM no verificable
 - [x] Medir latencia o memoria de la caché KV frente a la ruta sin caché con un protocolo reproducible
+- [ ] Incorporar adaptadores de bajo rango opcionales en proyecciones de atención y MoE sin alterar la base por defecto
+- [ ] Exponer configuración y parámetros entrenables de la adaptación en el runner y los checkpoints
+- [ ] Probar el gradiente de adaptadores y medir la reducción de parámetros entrenables frente al ajuste completo
+
+## Corrección de auditoría tecnológica del repositorio original
+
+- [x] Localizar referencias a Triton, Rust, C#, Python y demás lenguajes o runtimes dentro del repositorio original
+- [x] Clasificar cada tecnología como implementada, prevista, opcional o de infraestructura según evidencia textual y archivos fuente
+- [x] Corregir la hoja de ruta y la ficha técnica para que no omitan tecnologías documentadas por el repositorio
+- [x] Actualizar la ficha técnica del chat con Python/PyTorch, Triton/CUDA, Rust/Candle, TypeScript/Node.js y el estado de C++/C#
+- [x] Verificar por lectura directa la hoja de ruta y la ficha técnica corregidas antes de guardar un checkpoint

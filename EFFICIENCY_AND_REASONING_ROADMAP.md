@@ -5,15 +5,16 @@
 
 ## 1. Lenguajes y responsabilidades
 
-| Lenguaje o formato | Uso en Aethel | Razón de ingeniería |
+| Lenguaje, runtime o formato | Evidencia del repositorio original | Responsabilidad alineada para Aethel |
 |---|---|---|
-| **Python** | Núcleo PyTorch, tokenización, entrenamiento, evaluación, exportación de artefactos y pruebas del motor. | Es el ecosistema de investigación y entrenamiento de aprendizaje profundo del proyecto. |
-| **TypeScript** | API tRPC, contratos de datos, cálculo analítico de presupuestos y pruebas del servidor. | Mantiene tipos coherentes entre servidor y cliente. |
-| **TSX / React** | Dashboard, chat, telemetría y controles de entrenamiento. | Permite presentar al usuario capacidades y límites sin inventar datos. |
-| **SQL / Drizzle** | Historial persistente del chat y datos estructurados del dashboard. | Separa metadatos consultables de artefactos de modelo. |
-| **Bash** | Lanzadores reproducibles para Kaggle y GPU persistente. | Estandariza el entorno y reduce errores operativos. |
-| **CSS / HTML** | Sistema visual y accesibilidad del dashboard. | No participa en el cómputo del modelo. |
-| **JSON / JSONL / Markdown** | Manifiestos de corpus, trazas de memoria, métricas y documentación. | Dejan auditable el ciclo de datos y las memorias sin almacenar afirmaciones textuales falsas. |
+| **Python + PyTorch** | README: investigación y entrenamiento; archivos de modelo, entrenamiento y `triton_kernels/`. | Núcleo, tokenización, entrenamiento, evaluación, memoria y exportación. |
+| **Triton + CUDA** | `triton_kernels/fused_swiglu.py` contiene un kernel SwiGLU fusionado con fallback PyTorch. | Aceleración GPU opcional de operaciones críticas y futura actualización eficiente de El Líquido. |
+| **Rust + Candle** | README y `rust_engine/` documentan el motor de inferencia de producción. | Runtime de inferencia exportado, multihilo y sin depender del intérprete Python. |
+| **TypeScript / Node.js** | Pipeline de datos, evaluaciones, API y la interfaz original. | Ecosistema, evaluaciones, gateway y dashboard React/tRPC. |
+| **TSX / React** | `src/App.tsx` y componentes de interfaz. | Chat, telemetría y controles; no ejecuta el cómputo del modelo. |
+| **C++** | La interfaz original menciona una futura conexión nativa C++/Rust, pero esta clonación no incluye fuentes `.cpp`. | Posible capa nativa futura; no se presenta como motor implementado. |
+| **C#** | No se encontraron archivos `.cs` ni una referencia textual verificable en la clonación auditada. | Se registra como tecnología a confirmar si existe otra rama o documento del repositorio que la especifique. |
+| **SQL / Drizzle, Bash, JSONL y Markdown** | Capas añadidas por la plataforma de laboratorio actual. | Persistencia, lanzadores reproducibles, manifiestos, métricas y documentación. |
 
 ## 2. Principio de diseño
 
@@ -28,7 +29,7 @@ La metáfora humana sirve únicamente como inspiración funcional. Las memorias 
 | **MoE disperso top-2** | Más capacidad total sin activar todos los expertos en cada token. | Requiere balanceo, capacidad de expertos y medición de tokens descartados. | Implementado; se registran carga, entropía y desbalance. |
 | **GQA y KV-cache** | Reduce memoria de claves/valores durante generación. | Debe preservarse el contexto causal entre pasos. | Implementado; la materialización del prefill fue corregida y probada. |
 | **Pesos de embeddings atados** | Elimina una matriz de salida duplicada. | Sólo es apropiado para el vocabulario compartido de entrada/salida. | Implementado. |
-| **Adaptación de bajo rango** | Reduce parámetros entrenables durante adaptación de dominio. | No reemplaza el preentrenamiento; el rango y objetivos deben medirse. | Siguiente experimento propuesto. |
+| **Adaptación de bajo rango** | Reduce parámetros entrenables durante adaptación de dominio. | No reemplaza el preentrenamiento; el rango y objetivos deben medirse. | Implementada de forma opcional en atención y expertos MoE; requiere comparación de calidad contra ajuste completo. |
 | **Cuantización para ajuste fino** | Reduce memoria de la base durante adaptación. | Debe comprobarse estabilidad y calidad en los pesos de Aethel. | Investigación; no activada todavía. |
 
 La arquitectura MoE se apoya en activación selectiva, cuyo potencial de escalado eficiente se ha estudiado en GLaM y en configuraciones de expertos más especializados.[2] [3] Para la adaptación de un modelo ya entrenado, LoRA y QLoRA son opciones de investigación más razonables que reentrenar todos los pesos para cada memoria o dominio.[7] [8]
