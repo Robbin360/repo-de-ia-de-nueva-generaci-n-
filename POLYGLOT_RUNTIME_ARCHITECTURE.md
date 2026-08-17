@@ -18,7 +18,7 @@ El artefacto de modelo exportado debe llevar pesos, versión del tokenizador, co
 
 ## Regla de Triton
 
-La ejecución en GPU de Aethel exige Triton por defecto. El puente actual fusiona SwiGLU y aborta si se solicita producción CUDA sin Triton. Triton es un lenguaje y compilador de programación paralela orientado a kernels DNN personalizados, y su modelo por bloques está diseñado para favorecer localidad y paralelismo.[1] [2] Las siguientes rutas sólo podrán activarse tras pruebas de equivalencia y benchmark en la GPU objetivo: atención causal/FlashAttention, selección y dispersión MoE, y actualización de El Líquido. El fallback PyTorch sólo existe mediante una opción explícita de laboratorio, nunca como sustituto silencioso de producción.
+La ejecución en GPU de Aethel exige Triton por defecto. El puente actual fusiona SwiGLU y aborta si se solicita producción CUDA sin Triton. `training/run_triton_gpu_validation.sh` compara ese kernel contra PyTorch únicamente cuando una GPU CUDA y Triton están presentes, y emite `SKIPPED` de forma explícita si faltan; esta salida no es una métrica ni una validación de rendimiento. Triton es un lenguaje y compilador de programación paralela orientado a kernels DNN personalizados, y su modelo por bloques está diseñado para favorecer localidad y paralelismo.[1] [2] Las siguientes rutas sólo podrán activarse tras pruebas de equivalencia y benchmark en la GPU objetivo: atención causal/FlashAttention, selección y dispersión MoE, y actualización de El Líquido. El fallback PyTorch sólo existe mediante una opción explícita de laboratorio, nunca como sustituto silencioso de producción.
 
 ## Activación futura
 

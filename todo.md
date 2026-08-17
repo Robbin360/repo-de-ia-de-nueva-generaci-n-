@@ -160,3 +160,4 @@
 - [x] Añadir pruebas reproducibles de los contratos Rust y Triton disponibles en este entorno
 - [x] Exponer en la ficha técnica del chat el estado verificable de Python, Triton, Rust y Mojo sin declarar servicios no desplegados
 - [x] Definir API JSONL, snapshot atómico, recuperación y protocolo de supervisión del servicio Rust; la ejecución persistente queda pendiente antes de declararlo 24/7
+- [x] Evitar que el saludo del chat muestre un marcador de parámetros mientras la ficha técnica calculada se está cargando
