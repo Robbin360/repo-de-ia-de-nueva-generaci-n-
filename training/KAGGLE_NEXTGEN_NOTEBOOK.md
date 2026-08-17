@@ -4,7 +4,7 @@ Este flujo sustituye el cuaderno y el Dataset de checkpoints de **Aethel V3**. N
 
 | Entrada de Kaggle | Contenido exigido | Estado permitido |
 |---|---|---|
-| `aethel-nextgen-source` | Un único archivo `.gz` creado con `training/build_kaggle_nextgen_source_bundle.sh`. Kaggle puede conservar el nombre remoto de la URL. | Necesario antes de editar el cuaderno. |
+| `aethel-nextgen-source` | Un único archivo comprimido creado con `training/build_kaggle_nextgen_source_bundle.sh`. Kaggle puede conservar el nombre remoto y quitar `.gz`; la celda valida la firma gzip. | Necesario antes de editar el cuaderno. |
 | `aethel-nextgen-data` | Ya no es entrada: el cuaderno lo prepara desde fuentes aprobadas dentro de `/kaggle/working` y conserva hashes, manifiesto y evaluación retenida. | Construido sólo durante la versión comprometida. |
 | Salida del cuaderno comprometido | Checkpoints, métricas, manifiesto, tokenizador y `persistence_receipt.txt` bajo `/kaggle/working/aethel-runs/nextgen-pilot`. | Persistencia de la versión de Kaggle; un Dataset de artefactos es una opción posterior. |
 
@@ -16,7 +16,7 @@ Primero, desde el repositorio Aethel local, construye el paquete de fuentes sin 
 bash training/build_kaggle_nextgen_source_bundle.sh
 ```
 
-Sube el archivo comprimido resultante de `/home/ubuntu/aethel-kaggle-bundles/` a un nuevo Dataset privado denominado `aethel-nextgen-source`. Si Kaggle lo importa por URL, puede asignarle un nombre remoto; la celda siguiente rechaza cero o más de un archivo `.gz` para no extraer una entrada ambigua.
+Sube el archivo comprimido resultante de `/home/ubuntu/aethel-kaggle-bundles/` a un Dataset privado denominado `aethel-nextgen-source`. Si Kaggle lo importa por URL, puede asignarle un nombre remoto sin extensión; la celda siguiente acepta exactamente un archivo regular y comprueba que sus dos primeros bytes sean la firma gzip, evitando extraer una entrada ambigua o no comprimida.
 
 En un cuaderno nuevo de Kaggle, agrega como **Input** solamente el Dataset privado `aethel-nextgen-source`. Configura GPU T4 x2, activa Internet y pega esta única celda. No usa checkpoints ni datos de Aethel V3.
 
@@ -32,13 +32,19 @@ os.environ["AETHEL_BUILD_DATA_IN_KAGGLE"] = "YES"
 os.environ["AETHEL_RUN_AUTHORIZED"] = "YES"
 
 input_dir = Path("/kaggle/input/aethel-nextgen-source")
-bundles = sorted(input_dir.glob("*.gz"))
+bundles = sorted(
+    path for path in input_dir.iterdir()
+    if path.is_file() and not path.name.startswith(".")
+)
 if len(bundles) != 1:
     raise RuntimeError(
-        "Expected exactly one compressed Aethel NextGen source bundle under "
+        "Expected exactly one Aethel NextGen source bundle under "
         f"{input_dir}, found {len(bundles)}: {[path.name for path in bundles]}"
     )
 bundle = bundles[0]
+with bundle.open("rb") as stream:
+    if stream.read(2) != bytes.fromhex("1f8b"):
+        raise RuntimeError(f"Source bundle is not gzip-compressed: {bundle}")
 target = Path("/kaggle/working/aethel-nextgen-source")
 shutil.rmtree(target, ignore_errors=True)
 with tarfile.open(bundle, "r:gz") as archive:

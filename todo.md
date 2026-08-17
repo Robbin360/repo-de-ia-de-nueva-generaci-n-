@@ -208,3 +208,7 @@
 - [x] Documentar objetivos, criterios de éxito y límites verificables del piloto NextGen sin presentarlo como modelo de frontera final
 - [x] Reforzar checkpointing, exportación y reanudación automática para interrupciones o el límite de 12 horas de Kaggle
 - [x] Limitar la retención de snapshots portátiles y documentar la reanudación explícita entre sesiones sin depender de directorios efímeros
+
+- [x] Diagnosticar la versión comprometida #1: falló antes del entrenamiento porque `/kaggle/input/aethel-nextgen-source` montó cero archivos `.gz`
+- [ ] Corregir la versión del Dataset adjunta y verificar que el paquete `.gz` esté visible en `/kaggle/input/aethel-nextgen-source`
+- [ ] Crear una nueva versión comprometida sólo después de pasar el bootstrap de entrada y conservar el registro del resultado real

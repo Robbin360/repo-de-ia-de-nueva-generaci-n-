@@ -25,8 +25,9 @@ class KaggleNextGenInSituContractTest(unittest.TestCase):
     def test_notebook_detects_one_compressed_bundle_without_assuming_remote_filename(self):
         root = pathlib.Path(__file__).resolve().parent
         notebook = (root / "KAGGLE_NEXTGEN_NOTEBOOK.md").read_text(encoding="utf-8")
-        self.assertIn('input_dir.glob("*.gz")', notebook)
+        self.assertIn("path for path in input_dir.iterdir()", notebook)
         self.assertIn("if len(bundles) != 1:", notebook)
+        self.assertIn('bytes.fromhex("1f8b")', notebook)
         self.assertIn("Extracted source bundle does not contain expected launcher", notebook)
         self.assertNotIn(
             'bundle = Path("/kaggle/input/aethel-nextgen-source/aethel-nextgen-source.tar.gz")',

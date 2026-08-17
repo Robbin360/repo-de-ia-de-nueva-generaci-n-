@@ -33,3 +33,9 @@ La navegación actual sigue mostrando `Version 2`, un único archivo `gWTAXnCagw
 
 ---
 
+
+## Estado tras Save & Run All
+
+Kaggle muestra `aethel-nextgen-bilingual-pilot Version #1 with GPU T4 x2 — Failed`. El borrador conserva la celda y el Dataset privado `aethel-nextgen-source` aparece adjunto. El intento de abrir el registro `scriptVersionId=342929998` devolvió timeout del navegador; todavía no se conoce el traceback real. No se inició una segunda ejecución ni se inventa la causa del fallo.
+
+Siguiente acción segura: abrir manualmente el enlace de logs de la versión #1 y copiar las últimas líneas/traceback antes de modificar el cuaderno.
