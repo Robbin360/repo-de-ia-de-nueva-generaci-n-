@@ -41,6 +41,8 @@ describe("Aethel real runtime", () => {
     expect(result.reasoning.protocol).toEqual(["recuperación", "integración", "predicción"]);
     expect(result.technology.join(" ")).toContain("Triton + CUDA");
     expect(result.technology.join(" ")).toContain("Rust + Candle");
+    expect(result.technology.join(" ")).toContain("Mojo");
+    expect(result.technology.join(" ")).toContain("contrato de inferencia token a token definido");
     expect(result.technology.join(" ")).toContain("C#");
     expect(result.limitations.some(item => item.includes("GPU CUDA"))).toBe(true);
   });
@@ -56,6 +58,7 @@ describe("Aethel real runtime", () => {
     expect(result.reply).toContain("Stack tecnológico del repositorio original");
     expect(result.reply).toContain("Triton + CUDA");
     expect(result.reply).toContain("Rust + Candle");
+    expect(result.reply).toContain("Mojo");
     expect(chatStore.saved).toHaveLength(2);
   });
 });

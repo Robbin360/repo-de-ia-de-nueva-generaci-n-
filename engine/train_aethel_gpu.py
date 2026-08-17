@@ -117,7 +117,7 @@ def run(args: argparse.Namespace) -> None:
 
     from tokenizers import Tokenizer
     tokenizer = Tokenizer.from_file(args.tokenizer)
-    config = NextGenConfig(vocab_size=tokenizer.get_vocab_size(), dim=args.dim, layers=args.layers, heads=args.heads, kv_heads=args.kv_heads, experts=args.experts, active_experts=args.active_experts, max_seq_len=args.seq_len, memory_slots=args.memory_slots, replay_capacity=args.replay_capacity, router_bias_step=args.router_bias_step, router_bias_limit=args.router_bias_limit, lora_rank=args.lora_rank, lora_alpha=args.lora_alpha, lora_freeze_base=not args.lora_train_base)
+    config = NextGenConfig(vocab_size=tokenizer.get_vocab_size(), dim=args.dim, layers=args.layers, heads=args.heads, kv_heads=args.kv_heads, experts=args.experts, active_experts=args.active_experts, max_seq_len=args.seq_len, memory_slots=args.memory_slots, replay_capacity=args.replay_capacity, router_bias_step=args.router_bias_step, router_bias_limit=args.router_bias_limit, lora_rank=args.lora_rank, lora_alpha=args.lora_alpha, lora_freeze_base=not args.lora_train_base, require_triton=device.type == "cuda" and not args.allow_pytorch_fallback)
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
     core = AethelNextGen(config, output / f"episodic_rank_{rank}.jsonl").to(device)
@@ -231,6 +231,7 @@ if __name__ == "__main__":
     parser.add_argument("--lora-rank", type=int, default=0, help="Rango LoRA opcional; 0 mantiene ajuste completo.")
     parser.add_argument("--lora-alpha", type=float, default=16.0)
     parser.add_argument("--lora-train-base", action="store_true", help="Mantiene entrenables los pesos base además de LoRA.")
+    parser.add_argument("--allow-pytorch-fallback", action="store_true", help="Sólo laboratorio: permite operadores PyTorch en GPU si Triton no está listo.")
     parser.add_argument("--max-router-imbalance", type=float, default=0.30)
     parser.add_argument("--min-router-entropy", type=float, default=0.50)
     parser.add_argument("--grad-clip", type=float, default=1.0)

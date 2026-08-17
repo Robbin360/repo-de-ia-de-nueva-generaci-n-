@@ -36,9 +36,10 @@ class NextGenConfig:
     lora_rank: int = 0
     lora_alpha: float = 16.0
     lora_freeze_base: bool = True
+    require_triton: bool = False
 
     def model_config(self) -> AethelConfig:
-        return AethelConfig(vocab_size=self.vocab_size, dim=self.dim, n_layers=self.layers, n_heads=self.heads, n_kv_heads=self.kv_heads, n_experts=self.experts, active_experts=self.active_experts, max_seq_len=self.max_seq_len, router_bias_step=self.router_bias_step, router_bias_limit=self.router_bias_limit)
+        return AethelConfig(vocab_size=self.vocab_size, dim=self.dim, n_layers=self.layers, n_heads=self.heads, n_kv_heads=self.kv_heads, n_experts=self.experts, active_experts=self.active_experts, max_seq_len=self.max_seq_len, router_bias_step=self.router_bias_step, router_bias_limit=self.router_bias_limit, require_triton=self.require_triton)
 
 
 class LaRoca(nn.Module):

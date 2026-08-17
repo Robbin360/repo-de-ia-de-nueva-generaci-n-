@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import math
 from typing import Optional, Tuple, List
 from dataclasses import dataclass
+from triton_bridge import fused_swiglu
 
 @dataclass
 class AethelConfig:
@@ -19,6 +20,7 @@ class AethelConfig:
     norm_eps: float = 1e-6
     router_bias_step: float = 0.01
     router_bias_limit: float = 0.25
+    require_triton: bool = False
 
 class RMSNorm(nn.Module):
     def __init__(self, dim: int, eps: float = 1e-6):
@@ -55,14 +57,15 @@ def apply_rotary_emb(
     return xq_out.type_as(xq), xk_out.type_as(xk)
 
 class SwiGLU(nn.Module):
-    def __init__(self, dim: int, hidden_dim: int):
+    def __init__(self, dim: int, hidden_dim: int, require_triton: bool = False):
         super().__init__()
         self.w1 = nn.Linear(dim, hidden_dim, bias=False)
         self.w2 = nn.Linear(dim, hidden_dim, bias=False)
         self.w3 = nn.Linear(hidden_dim, dim, bias=False)
+        self.require_triton = require_triton
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.w3(F.silu(self.w1(x)) * self.w2(x))
+        return self.w3(fused_swiglu(self.w1(x), self.w2(x), require_triton=self.require_triton and x.is_cuda))
 
 class SparseMoE(nn.Module):
     def __init__(self, config: AethelConfig):
@@ -78,7 +81,7 @@ class SparseMoE(nn.Module):
         # Alineación con Tensor Cores (múltiplo de 256)
         hidden_dim = 256 * ((hidden_dim + 255) // 256)
         
-        self.experts = nn.ModuleList([SwiGLU(config.dim, hidden_dim) for _ in range(config.n_experts)])
+        self.experts = nn.ModuleList([SwiGLU(config.dim, hidden_dim, config.require_triton) for _ in range(config.n_experts)])
         self.last_load = [0.0] * config.n_experts
         self.register_buffer("router_bias", torch.zeros(config.n_experts), persistent=True)
         self.register_buffer("load_ema", torch.full((config.n_experts,), 1.0 / config.n_experts), persistent=True)

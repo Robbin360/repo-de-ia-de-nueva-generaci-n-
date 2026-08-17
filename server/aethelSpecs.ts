@@ -49,14 +49,15 @@ export function getAethelSpecification() {
       privacy: "No se expone cadena de pensamiento interna; se presentan resultados, evidencia y límites verificables.",
     },
     technology: [
-      "**Python + PyTorch:** investigación, entrenamiento, memoria y evaluación; implementado.",
-      "**Triton + CUDA:** kernels fusionados de GPU, incluido SwiGLU; implementado en el repositorio original y pendiente de integración GPU en este runner.",
-      "**Rust + Candle:** runtime de inferencia de producción documentado en `rust_engine/`; previsto para exportación del modelo.",
+      "**Python + PyTorch:** laboratorio temporal para topología, entrenamiento, evaluación y exportación de pesos; implementado.",
+      "**Triton + CUDA:** puente SwiGLU fusionado integrado; el runner GPU exige Triton por defecto y sólo activa esta ruta con CUDA real.",
+      "**Rust + Candle:** núcleo Rust de memoria trazable compilado y probado; el servicio 24/7 y la exportación Candle todavía no están desplegados.",
+      "**Mojo:** contrato de inferencia token a token definido; el runtime Mojo aún no está instalado ni validado con pesos Aethel.",
       "**TypeScript / Node.js:** ecosistema, evaluaciones, gateway y dashboard; implementado.",
       "**C++:** conexión nativa futura mencionada por la interfaz original; no hay fuentes C++ en la clonación auditada.",
       "**C#:** no se encontraron archivos ni referencias verificables en la clonación auditada; requiere confirmar otra rama o documento.",
     ],
-    limitations: ["Las capacidades requieren entrenamiento con corpus y evaluación real.", "No hay puntuaciones MMLU, GSM8K o HumanEval hasta ejecutar sus harnesses con predicciones reales.", "FSDP y la familia scale-1b requieren al menos dos GPU CUDA reales y validación distribuida."],
+    limitations: ["Las capacidades requieren entrenamiento con corpus y evaluación real.", "No hay puntuaciones MMLU, GSM8K o HumanEval hasta ejecutar sus harnesses con predicciones reales.", "FSDP y la familia scale-1b requieren al menos dos GPU CUDA reales y validación distribuida.", "Triton no se ha benchmarkeado aún en una GPU objetivo; Mojo y el servicio Rust 24/7 no se declararán disponibles hasta ejecutar pruebas de interoperabilidad y operación persistente."],
   };
 }
 

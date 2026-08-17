@@ -146,3 +146,17 @@
 - [x] Corregir la hoja de ruta y la ficha técnica para que no omitan tecnologías documentadas por el repositorio
 - [x] Actualizar la ficha técnica del chat con Python/PyTorch, Triton/CUDA, Rust/Candle, TypeScript/Node.js y el estado de C++/C#
 - [x] Verificar por lectura directa la hoja de ruta y la ficha técnica corregidas antes de guardar un checkpoint
+
+## Arquitectura objetivo políglota: interfaz, silicio e inferencia persistente
+
+- [x] Documentar TypeScript/Node.js y Tailwind/React como interfaz y capa de conexión de Aethel
+- [x] Restringir Python/PyTorch en la especificación a laboratorio temporal de topología, entrenamiento y horneado de pesos
+- [ ] Implementar y validar la ruta Triton obligatoria para atención causal y routing/dispatch MoE en GPU; actualmente sólo SwiGLU está integrado
+- [x] Diseñar el contrato de inferencia local token a token para un runtime Mojo
+- [ ] Diseñar el servicio Rust 24/7 completo para memoria vectorial/RAG, consolidación y ciclo de sueño; actualmente sólo existe el núcleo local validado
+- [x] Auditar e implementar las partes posibles sin GPU CUDA ni runtime Mojo instalado, manteniendo marcadas las dependencias de hardware
+- [x] Crear un núcleo Rust comprobable para registros de memoria, consolidación y recuperación trazable sin afirmar un RAG distribuido terminado
+- [x] Definir un contrato de artefactos y de KV-cache para que un runtime Mojo de inferencia local pueda validarse contra PyTorch
+- [x] Añadir pruebas reproducibles de los contratos Rust y Triton disponibles en este entorno
+- [x] Exponer en la ficha técnica del chat el estado verificable de Python, Triton, Rust y Mojo sin declarar servicios no desplegados
+- [x] Definir API JSONL, snapshot atómico, recuperación y protocolo de supervisión del servicio Rust; la ejecución persistente queda pendiente antes de declararlo 24/7
