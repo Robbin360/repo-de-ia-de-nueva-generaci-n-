@@ -201,6 +201,7 @@
 - [x] Investigar y fijar un conjunto de fuentes reales bilingües, enciclopédicas y de razonamiento con licencia, revisión inmutable, procedencia y límites para un piloto Aethel NextGen
 - [x] Mejorar la receta de entrenamiento NextGen para mezcla de datos, currículo, estabilidad MoE, evaluación bilingüe y registros reproducibles
 - [ ] Construir y validar un Dataset privado `aethel-nextgen-data` sin datos sintéticos ni checkpoints V3
-- [ ] Crear un cuaderno privado Kaggle independiente para Aethel NextGen con entradas separadas, GPU T4 x2 y borrador no ejecutado
+- [x] Crear un cuaderno privado Kaggle independiente para Aethel NextGen con entradas separadas, GPU T4 x2 y borrador no ejecutado
 - [ ] Ejecutar Save Version → Save & Run All solo tras validar los controles de datos, evaluación y persistencia del cuaderno NextGen autorizado
 - [x] Adaptar el flujo de datos bilingües real para construirlo dentro de Kaggle con límites de memoria, reintentos, hashes y evaluación retenida
+- [x] Hacer que el bootstrap del cuaderno detecte de forma segura el paquete de fuentes comprimido aunque Kaggle preserve un nombre remoto no descriptivo

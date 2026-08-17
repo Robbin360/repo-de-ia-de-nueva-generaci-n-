@@ -4,7 +4,7 @@ Este flujo sustituye el cuaderno y el Dataset de checkpoints de **Aethel V3**. N
 
 | Entrada de Kaggle | Contenido exigido | Estado permitido |
 |---|---|---|
-| `aethel-nextgen-source` | `aethel-nextgen-source.tar.gz`, creado con `training/build_kaggle_nextgen_source_bundle.sh` | Necesario antes de editar el cuaderno. |
+| `aethel-nextgen-source` | Un único archivo `.gz` creado con `training/build_kaggle_nextgen_source_bundle.sh`. Kaggle puede conservar el nombre remoto de la URL. | Necesario antes de editar el cuaderno. |
 | `aethel-nextgen-data` | Ya no es entrada: el cuaderno lo prepara desde fuentes aprobadas dentro de `/kaggle/working` y conserva hashes, manifiesto y evaluación retenida. | Construido sólo durante la versión comprometida. |
 | Salida del cuaderno comprometido | Checkpoints, métricas, manifiesto, tokenizador y `persistence_receipt.txt` bajo `/kaggle/working/aethel-runs/nextgen-pilot`. | Persistencia de la versión de Kaggle; un Dataset de artefactos es una opción posterior. |
 
@@ -16,7 +16,7 @@ Primero, desde el repositorio Aethel local, construye el paquete de fuentes sin 
 bash training/build_kaggle_nextgen_source_bundle.sh
 ```
 
-Sube los dos archivos resultantes de `/home/ubuntu/aethel-kaggle-bundles/` a un nuevo Dataset privado denominado `aethel-nextgen-source`. El archivo comprimido debe conservar el nombre `aethel-nextgen-source.tar.gz`.
+Sube el archivo comprimido resultante de `/home/ubuntu/aethel-kaggle-bundles/` a un nuevo Dataset privado denominado `aethel-nextgen-source`. Si Kaggle lo importa por URL, puede asignarle un nombre remoto; la celda siguiente rechaza cero o más de un archivo `.gz` para no extraer una entrada ambigua.
 
 En un cuaderno nuevo de Kaggle, agrega como **Input** solamente el Dataset privado `aethel-nextgen-source`. Configura GPU T4 x2, activa Internet y pega esta única celda. No usa checkpoints ni datos de Aethel V3.
 
@@ -31,16 +31,25 @@ os.environ["AETHEL_PERSISTENCE_MODE"] = "notebook-output"
 os.environ["AETHEL_BUILD_DATA_IN_KAGGLE"] = "YES"
 os.environ["AETHEL_RUN_AUTHORIZED"] = "YES"
 
-bundle = Path("/kaggle/input/aethel-nextgen-source/aethel-nextgen-source.tar.gz")
+input_dir = Path("/kaggle/input/aethel-nextgen-source")
+bundles = sorted(input_dir.glob("*.gz"))
+if len(bundles) != 1:
+    raise RuntimeError(
+        "Expected exactly one compressed Aethel NextGen source bundle under "
+        f"{input_dir}, found {len(bundles)}: {[path.name for path in bundles]}"
+    )
+bundle = bundles[0]
 target = Path("/kaggle/working/aethel-nextgen-source")
-if not bundle.is_file():
-    raise FileNotFoundError(f"Missing source bundle: {bundle}")
 shutil.rmtree(target, ignore_errors=True)
 with tarfile.open(bundle, "r:gz") as archive:
     archive.extractall("/kaggle/working", filter="data")
 
+launcher = target / "training" / "run_kaggle_nextgen_in_situ.sh"
+if not launcher.is_file():
+    raise RuntimeError(f"Extracted source bundle does not contain expected launcher: {launcher}")
+
 os.environ["AETHEL_SOURCE_DIR"] = str(target)
-!bash /kaggle/working/aethel-nextgen-source/training/run_kaggle_nextgen_in_situ.sh
+!bash {launcher}
 ```
 
 Esta celda está preparada exclusivamente para **Save Version → Save & Run All (Commit)** autorizado. Antes de usarla, verifica que el cuaderno esté privado, que Internet esté activo y que GPU T4 x2 esté seleccionado. El guard conserva la verificación de manifiesto, evaluación, checkpoint empaquetado y persistencia de la salida versionada antes de declarar que el piloto ha terminado.
