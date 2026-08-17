@@ -183,12 +183,13 @@
 - [ ] Preparar la opción gratuita seleccionada y pedir confirmación antes de iniciar cualquier sesión
 - [x] Verificar y preparar el cuaderno de Kaggle, el manifiesto aprobado y los artefactos de exportación sin habilitar una sesión GPU
 - [x] Integrar el validador aprobado de corpus y evaluación en el lanzador Kaggle antes de instalar dependencias o usar GPU
-- [ ] Comprobar el acceso de la cuenta Kaggle en el navegador sin crear notebook ni consumir cuota
+- [x] Comprobar el acceso de la cuenta Kaggle en el navegador sin crear notebook ni consumir cuota
 - [x] Añadir una validación automática de preparación que rechace manifiestos no aprobados o rutas de evaluación incompletas antes de lanzar GPU
 - [x] Integrar el validador de preparación en el launcher GPU para abortar antes de cualquier descarga o entrenamiento si falla
 - [x] Exigir revisiones inmutables aprobadas y entradas de evaluación configuradas antes de permitir un lanzamiento GPU
 - [x] Comprobar accesibilidad real de holdout, tokenizador y referencias de benchmark en el modo de lanzamiento aprobado
 - [x] Probar el rechazo de rutas de evaluación inexistentes y el bloqueo del launcher antes de instalar o descargar
+- [x] Añadir un inspector de compatibilidad de checkpoints que informe claves y formas antes de cualquier carga estricta en Kaggle
 - [x] Implementar una variante de refinamiento adaptativo con pasos máximos, umbral de dificultad y telemetría de cómputo efectiva
 - [x] Comparar la variante adaptativa contra el baseline con una prueba reproducible de pérdida y coste de refinamiento
 - [x] Exponer la variante ARC en la ficha técnica del chat con su presupuesto calculado, telemetría y límites experimentales

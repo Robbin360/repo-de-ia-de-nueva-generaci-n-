@@ -9,6 +9,7 @@ set -euo pipefail
 : "${AETHEL_OUTPUT_DIR:=/kaggle/working/aethel-runs/nextgen-pilot}"
 : "${AETHEL_KAGGLE_DATASET:=}"
 : "${AETHEL_EVALUATION_CONFIG:=$AETHEL_DATA_DIR/evaluation/evaluation_plan.json}"
+: "${AETHEL_RESUME_CHECKPOINT:=}"
 
 if [[ -z "$AETHEL_KAGGLE_DATASET" ]]; then
   echo "Falta AETHEL_KAGGLE_DATASET=usuario/dataset-privado; no se permite iniciar sin persistencia de artefactos." >&2
@@ -28,6 +29,17 @@ python training/validate_training_readiness.py \
   --evaluation-config "$AETHEL_EVALUATION_CONFIG" \
   --require-approved \
   --output "$AETHEL_WORK_DIR/training-readiness.json"
+
+# Un state_dict histórico sin configuración puede inspeccionarse, pero no se
+# reanuda: evita repetir el error de `model.load_state_dict(raw_state_dict)`.
+if [[ -n "$AETHEL_RESUME_CHECKPOINT" ]]; then
+  test -f "$AETHEL_RESUME_CHECKPOINT"
+  python training/inspect_checkpoint.py "$AETHEL_RESUME_CHECKPOINT" \
+    --require-reproducible \
+    --output "$AETHEL_WORK_DIR/checkpoint-inspection.json"
+  mkdir -p "$AETHEL_OUTPUT_DIR"
+  cp "$AETHEL_RESUME_CHECKPOINT" "$AETHEL_OUTPUT_DIR/latest.pt"
+fi
 
 python -m pip install --quiet -r training/requirements.txt
 python - <<'PY'
