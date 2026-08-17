@@ -33,10 +33,10 @@ La primera meta realista es validar una configuración de **100M–300M parámet
 Antes de crear una corrida de la familia `scale-1b`, ejecutar en un host con al menos dos GPU CUDA:
 
 ```bash
-bash training/run_fsdp_validation.sh
+bash training/run_gpu_preflight.sh
 ```
 
-La prueba usa `torchrun` con dos procesos, ejecuta FSDP real durante un paso, comprueba que sólo el rango 0 persiste `latest.pt`, reanuda hasta el paso dos y verifica los registros de ambos rangos. En un host sin dos GPU CUDA imprime `SKIPPED`; eso no equivale a una validación aprobada.
+El preflight informa la topología CUDA real y, sólo si detecta al menos dos GPU CUDA, compara el kernel Triton SwiGLU contra PyTorch y ejecuta FSDP real durante un paso. Después comprueba que sólo el rango 0 persiste `latest.pt`, reanuda hasta el paso dos y verifica los registros de ambos rangos. En un host sin dos GPU CUDA imprime `SKIPPED`; eso no equivale a una validación aprobada ni a un benchmark.
 
 ## Corpus y gobierno de datos
 
