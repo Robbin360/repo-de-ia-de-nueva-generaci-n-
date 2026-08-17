@@ -116,3 +116,22 @@
 - [x] Añadir soporte de entrenamiento distribuido y precisión mixta para GPU
 - [x] Crear scripts verificables de MMLU, HumanEval y GSM8K que requieren datasets y predicciones reales
 - [ ] Iniciar una corrida continua únicamente después de que el usuario autorice el proveedor, la cuenta y el presupuesto
+
+## Memoria, razonamiento y conversación de Aethel
+
+- [x] Auditar las memorias existentes y definir capacidades verificables de memoria de trabajo, episódica, semántica y consolidación
+- [x] Reforzar el núcleo NextGen con recuperación de memoria relevante y trazabilidad explícita de su uso
+- [x] Incorporar un flujo de razonamiento estructurado y comprobable, sin presentar texto de razonamiento interno como hechos
+- [x] Exponer en el chat las capacidades, límites, configuración activa y presupuestos de parámetros medidos de Aethel
+- [x] Añadir pruebas del motor y del chat para la memoria, razonamiento estructurado y respuestas de especificación
+
+## Eficiencia computacional e inteligencia verificable
+
+- [x] Auditar los lenguajes de programación de Aethel y documentar la responsabilidad de cada uno
+- [x] Investigar mecanismos de reducción de cómputo, memoria y parámetros con fuentes primarias
+- [x] Diseñar una hoja de ruta de arquitectura para mejorar eficiencia y razonamiento sin afirmar inteligencia humana demostrada
+- [x] Implementar y medir al menos una optimización segura de eficiencia en el núcleo o entrenamiento
+- [x] Documentar límites, métricas y requisitos para comparar las mejoras en experimentos reales
+- [x] Exponer en la ficha técnica del chat el modo cognitivo activo y la configuración verificable del motor cuando exista un proceso real
+- [x] Añadir una prueba automatizada del flujo de ficha técnica en `chat.send` sin invocar una salida LLM no verificable
+- [x] Medir latencia o memoria de la caché KV frente a la ruta sin caché con un protocolo reproducible

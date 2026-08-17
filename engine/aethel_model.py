@@ -164,7 +164,8 @@ class Attention(nn.Module):
         x: torch.Tensor, 
         freqs_cis: torch.Tensor, 
         mask: Optional[torch.Tensor] = None,
-        kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
+        kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        use_kv_cache: bool = False,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         B, T, C = x.shape
         
@@ -179,7 +180,9 @@ class Attention(nn.Module):
             k_prev, v_prev = kv_cache
             k = torch.cat([k_prev, k], dim=1)
             v = torch.cat([v_prev, v], dim=1)
-        new_kv_cache = (k, v) if kv_cache is not None else None
+        # El primer prefill no contiene entradas previas, pero debe devolver
+        # claves/valores cuando el llamador solicitó conservar el contexto.
+        new_kv_cache = (k, v) if use_kv_cache else None
 
         # Expansión GQA (Grouped-Query Attention)
         k_rep = torch.repeat_interleave(k, self.n_rep, dim=2)
@@ -212,9 +215,10 @@ class TransformerBlock(nn.Module):
         x: torch.Tensor, 
         freqs_cis: torch.Tensor, 
         mask: Optional[torch.Tensor] = None,
-        kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
+        kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        use_kv_cache: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
-        attn_out, new_kv_cache = self.attention(self.attention_norm(x), freqs_cis, mask, kv_cache)
+        attn_out, new_kv_cache = self.attention(self.attention_norm(x), freqs_cis, mask, kv_cache, use_kv_cache)
         h = x + attn_out
         ff_out, aux_loss = self.feed_forward(self.ffn_norm(h))
         out = h + ff_out
@@ -265,11 +269,12 @@ class AethelModel(nn.Module):
         freqs_cis = self.freqs_cis[start_pos : start_pos + T]
         
         total_aux_loss = 0.0
-        new_kv_caches = [] if kv_caches is not None else None
+        cache_requested = kv_caches is not None
+        new_kv_caches = [] if cache_requested else None
 
         for i, layer in enumerate(self.layers):
             cache_i = kv_caches[i] if kv_caches is not None else None
-            h, aux_loss, new_cache = layer(h, freqs_cis, kv_cache=cache_i)
+            h, aux_loss, new_cache = layer(h, freqs_cis, kv_cache=cache_i, use_kv_cache=cache_requested)
             total_aux_loss += aux_loss
             self.last_expert_loads = layer.feed_forward.last_load
             if new_kv_caches is not None:

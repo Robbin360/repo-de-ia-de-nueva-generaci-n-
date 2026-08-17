@@ -100,10 +100,13 @@ class EspacioTrabajoGlobal(nn.Module):
         super().__init__()
         self.gate = nn.Linear(dim * 3, 3)
         self.output = nn.Linear(dim, dim, bias=False)
+        self.last_weights = {"La Roca": 0.0, "El Líquido": 0.0, "Memoria recuperada": 0.0}
 
     def forward(self, rock: torch.Tensor, liquid: torch.Tensor, recalled: torch.Tensor) -> torch.Tensor:
         candidates = torch.stack([rock, liquid, recalled], dim=1)
         weights = F.softmax(self.gate(torch.cat([rock, liquid, recalled], dim=-1)), dim=-1).unsqueeze(-1)
+        mean_weights = weights.detach().float().mean(dim=0).squeeze(-1).cpu().tolist()
+        self.last_weights = {"La Roca": float(mean_weights[0]), "El Líquido": float(mean_weights[1]), "Memoria recuperada": float(mean_weights[2])}
         return self.output((candidates * weights).sum(dim=1))
 
 
@@ -158,18 +161,76 @@ class MemoriaEpisodica:
         self.records = self.records[-self.capacity:]
 
     def retrieve(self, query: torch.Tensor, k: int = 4) -> Optional[torch.Tensor]:
+        recalled, _ = self.retrieve_with_trace(query, k)
+        return recalled
+
+    def retrieve_with_trace(self, query: torch.Tensor, k: int = 4) -> tuple[Optional[torch.Tensor], dict]:
         if not self.records:
-            return None
+            return None, {"source": "episodic", "available": 0, "selected": 0, "top_similarity": None}
         vectors = torch.tensor([r["state"] for r in self.records], dtype=torch.float32, device=query.device)
         scores = F.normalize(vectors, dim=-1) @ F.normalize(query.detach().float(), dim=-1).squeeze(0)
-        indices = torch.topk(scores, min(k, len(self.records))).indices
-        return vectors[indices].mean(dim=0, keepdim=True).to(query.dtype)
+        values, indices = torch.topk(scores, min(k, len(self.records)))
+        weights = F.softmax(values, dim=0).unsqueeze(-1)
+        recalled = (vectors[indices] * weights).sum(dim=0, keepdim=True).to(query.dtype)
+        return recalled, {"source": "episodic", "available": len(self.records), "selected": int(indices.numel()), "top_similarity": float(values[0].detach().cpu())}
 
     def flush(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("w", encoding="utf-8") as handle:
             for record in self.records:
                 handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+class MemoriaSemantica:
+    """Prototipos persistentes de estados recurrentes; no inventa etiquetas ni texto."""
+
+    def __init__(self, path: str | Path, dim: int, capacity: int = 128, merge_threshold: float = 0.92):
+        self.path = Path(path)
+        self.dim = dim
+        self.capacity = capacity
+        self.merge_threshold = merge_threshold
+        self.records: list[dict] = []
+        if self.path.exists():
+            for line in self.path.read_text(encoding="utf-8").splitlines():
+                if line.strip():
+                    self.records.append(json.loads(line))
+            self.records = self.records[-capacity:]
+
+    def add(self, state: torch.Tensor, salience: float) -> None:
+        vector = F.normalize(state.detach().float().flatten(), dim=0).cpu()
+        if self.records:
+            vectors = torch.tensor([record["state"] for record in self.records], dtype=torch.float32)
+            scores = F.normalize(vectors, dim=-1) @ vector
+            value, index = torch.max(scores, dim=0)
+            if float(value) >= self.merge_threshold:
+                record = self.records[int(index)]
+                count = int(record.get("observations", 1))
+                merged = F.normalize((torch.tensor(record["state"], dtype=torch.float32) * count + vector * max(float(salience), 0.01)) / (count + max(float(salience), 0.01)), dim=0)
+                record.update({"state": merged.tolist(), "observations": count + 1, "salience": max(float(record.get("salience", 0.0)), float(salience))})
+                return
+        self.records.append({"state": vector.tolist(), "observations": 1, "salience": float(salience)})
+        self.records = self.records[-self.capacity:]
+
+    def retrieve_with_trace(self, query: torch.Tensor, k: int = 2) -> tuple[Optional[torch.Tensor], dict]:
+        if not self.records:
+            return None, {"source": "semantic", "available": 0, "selected": 0, "top_similarity": None}
+        vectors = torch.tensor([record["state"] for record in self.records], dtype=torch.float32, device=query.device)
+        scores = F.normalize(vectors, dim=-1) @ F.normalize(query.detach().float(), dim=-1).squeeze(0)
+        values, indices = torch.topk(scores, min(k, len(self.records)))
+        weights = F.softmax(values, dim=0).unsqueeze(-1)
+        recalled = (vectors[indices] * weights).sum(dim=0, keepdim=True).to(query.dtype)
+        observations = sum(int(self.records[int(index)].get("observations", 1)) for index in indices.detach().cpu().tolist())
+        return recalled, {"source": "semantic", "available": len(self.records), "selected": int(indices.numel()), "top_similarity": float(values[0].detach().cpu()), "observations": observations}
+
+    def flush(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self.path.open("w", encoding="utf-8") as handle:
+            for record in self.records:
+                handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    def manifest(self) -> dict:
+        observations = sum(int(record.get("observations", 1)) for record in self.records)
+        return {"semantic_records": len(self.records), "capacity": self.capacity, "observations": observations, "path": str(self.path), "merge_threshold": self.merge_threshold}
 
 
 class WorkingMemory(nn.Module):
@@ -200,27 +261,30 @@ class AethelNextGen(nn.Module):
         self.workspace = EspacioTrabajoGlobal(config.dim)
         self.sleep = CicloDeSueno(config.replay_capacity)
         self.memory = MemoriaEpisodica(memory_path, config.dim, config.replay_capacity)
+        self.semantic_memory = MemoriaSemantica(memory_file.with_name("semantic_memory.jsonl"), config.dim, config.memory_slots)
         self.working_memory = WorkingMemory(config.dim)
         self.memory_to_core = nn.Linear(config.dim, config.dim, bias=False)
         self.register_buffer("memory_state", torch.zeros(1, config.dim), persistent=False)
-        self.last_metrics: dict = {"memory_hits": 0, "memory_records": len(self.memory.records), "replay_records": 0, "pillar": "Aethel NextGen"}
+        self.last_metrics: dict = {"memory_hits": 0, "memory_records": len(self.memory.records), "semantic_records": len(self.semantic_memory.records), "replay_records": 0, "pillar": "Aethel NextGen"}
 
     def reset_session(self) -> None:
         self.memory_state = torch.zeros_like(self.memory_state)
-        self.last_metrics = {"memory_hits": 0, "memory_records": len(self.memory.records), "replay_records": len(self.sleep.replay), "pillar": "Aethel NextGen"}
+        self.last_metrics = {"memory_hits": 0, "memory_records": len(self.memory.records), "semantic_records": len(self.semantic_memory.records), "replay_records": len(self.sleep.replay), "pillar": "Aethel NextGen"}
 
     def forward(self, tokens: torch.Tensor, targets: Optional[torch.Tensor] = None):
         observation = self.core.tok_embeddings(tokens).mean(dim=1)
         working = self.working_memory(observation, self.memory_state.expand(tokens.shape[0], -1))
         rock = self.rock(working)
         liquid = self.liquid(working)
-        recalled = self.memory.retrieve(working[:1])
-        if recalled is None:
+        episodic, episodic_trace = self.memory.retrieve_with_trace(working[:1])
+        semantic, semantic_trace = self.semantic_memory.retrieve_with_trace(working[:1])
+        recalled_sources = [state for state in [episodic, semantic] if state is not None]
+        if not recalled_sources:
             recalled = torch.zeros_like(working)
             memory_hit = 0
         else:
             memory_hit = 1
-            recalled = recalled.reshape(1, -1).expand(working.size(0), -1)
+            recalled = torch.stack(recalled_sources, dim=0).mean(dim=0).reshape(1, -1).expand(working.size(0), -1)
         global_context = self.workspace(rock, liquid, recalled)
         self.memory_state = (working + global_context).mean(dim=0, keepdim=True).detach()
         logits, aux_loss, _ = self.core(tokens, memory_state=self.memory_to_core(global_context))
@@ -228,7 +292,7 @@ class AethelNextGen(nn.Module):
         if targets is not None:
             loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), targets.reshape(-1)) + 0.01 * aux_loss
         priority, surprise = self.neuromodulation(working, loss)
-        self.last_metrics.update({"memory_hits": self.last_metrics.get("memory_hits", 0) + memory_hit, "memory_records": len(self.memory.records), "replay_records": len(self.sleep.replay), "aux_loss": float(aux_loss.detach().cpu()), "neuromodulation": float(priority.cpu()), "surprise": float(surprise.cpu()), "pillars": {"La Roca": True, "El Líquido": True, "Ciclo de Sueño": True, "Neuromodulación": True, "Espacio de Trabajo Global": True}})
+        self.last_metrics.update({"memory_hits": self.last_metrics.get("memory_hits", 0) + memory_hit, "memory_records": len(self.memory.records), "semantic_records": len(self.semantic_memory.records), "replay_records": len(self.sleep.replay), "aux_loss": float(aux_loss.detach().cpu()), "neuromodulation": float(priority.cpu()), "surprise": float(surprise.cpu()), "reasoning_trace": {"protocol": ["recuperación", "integración", "predicción"], "episodic": episodic_trace, "semantic": semantic_trace, "workspace_weights": dict(self.workspace.last_weights), "internal_chain_of_thought_exposed": False}, "pillars": {"La Roca": True, "El Líquido": True, "Ciclo de Sueño": True, "Neuromodulación": True, "Espacio de Trabajo Global": True}})
         return logits, loss, dict(self.last_metrics)
 
     @torch.no_grad()
@@ -236,9 +300,11 @@ class AethelNextGen(nn.Module):
         state = self.memory_state.detach().cpu()
         self.liquid.observe(state, salience)
         self.memory.add(state, tokens[0].detach().cpu().tolist(), salience)
+        self.semantic_memory.add(state, salience)
         self.sleep.consolidate(state, tokens[0].detach().cpu().tolist(), salience)
         self.memory.flush()
-        self.last_metrics.update({"memory_records": len(self.memory.records), "replay_records": len(self.sleep.replay), "liquid_version": self.liquid.version})
+        self.semantic_memory.flush()
+        self.last_metrics.update({"memory_records": len(self.memory.records), "semantic_records": len(self.semantic_memory.records), "replay_records": len(self.sleep.replay), "liquid_version": self.liquid.version})
         return dict(self.last_metrics)
 
     def regularization_loss(self, reference: dict[str, torch.Tensor], coefficient: float = 1e-4) -> torch.Tensor:
@@ -249,4 +315,4 @@ class AethelNextGen(nn.Module):
         return coefficient * penalty
 
     def export_memory_manifest(self) -> dict:
-        return {"episodic_records": len(self.memory.records), "replay": self.sleep.manifest(), "capacity": self.memory.capacity, "path": str(self.memory.path), "liquid": self.liquid.manifest()}
+        return {"episodic_records": len(self.memory.records), "episodic": {"capacity": self.memory.capacity, "path": str(self.memory.path)}, "semantic": self.semantic_memory.manifest(), "replay": self.sleep.manifest(), "liquid": self.liquid.manifest(), "reasoning_protocol": ["recuperación", "integración", "predicción"]}

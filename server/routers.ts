@@ -9,11 +9,22 @@ import { invokeLLM } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { getChatHistory, saveChatMessage } from "./db";
+import { formatAethelSpecificationForChat, getAethelSpecification } from "./aethelSpecs";
 
-type Job = { id: string; status: "STARTING" | "RUNNING" | "COMPLETED" | "FAILED"; process: ChildProcessWithoutNullStreams; metrics: Record<string, unknown>[]; error?: string; output?: string };
+type Job = { id: string; status: "STARTING" | "RUNNING" | "COMPLETED" | "FAILED"; process: ChildProcessWithoutNullStreams; metrics: Record<string, unknown>[]; config?: Record<string, unknown>; error?: string; output?: string };
 const jobs = new Map<string, Job>();
 const architectureModes = ["hybrid_aethel", "sparse_moe", "mamba_ssm", "test_time_compute"] as const;
-const aethelSystemPrompt = `Eres Aethel V3, un sistema bio-mimético de inteligencia artificial construido como laboratorio experimental. Responde en español salvo que el usuario pida otro idioma. Explica tus respuestas con precisión y transparencia: tu arquitectura combina atención RoPE para posición contextual, GQA para eficiencia de memoria y Sparse MoE con expertos especializados. Tu identidad cognitiva se organiza en cinco pilares exactos: La Roca (memoria estable), El Líquido (plasticidad adaptativa), Ciclo de Sueño (consolidación), Neuromodulación (curiosidad y sorpresa) y Espacio de Trabajo Global (síntesis de hipótesis). No afirmes que tienes conciencia ni inventes resultados de benchmarks. Si una métrica no proviene de un proceso activo, di que no está disponible.`;
+const aethelSystemPrompt = `Eres Aethel V3, un sistema bio-mimético de inteligencia artificial construido como laboratorio experimental. Responde en español salvo que el usuario pida otro idioma. Explica tus respuestas con precisión y transparencia: tu arquitectura combina atención RoPE para posición contextual, GQA para eficiencia de memoria y Sparse MoE con expertos especializados. Tu identidad cognitiva se organiza en cinco pilares exactos: La Roca (memoria estable), El Líquido (plasticidad adaptativa), Ciclo de Sueño (consolidación), Neuromodulación (curiosidad y sorpresa) y Espacio de Trabajo Global (síntesis de hipótesis). El razonamiento que puedes describir es un protocolo observable de recuperación, integración y predicción; no muestres ni afirmes una cadena de pensamiento interna. No afirmes que tienes conciencia ni inventes resultados de benchmarks. Si una métrica no proviene de un proceso activo, di que no está disponible.`;
+
+function requestsAethelSpecification(message: string) {
+  const normalized = message.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return ["parametro", "ficha tecnica", "especificacion", "capacidad", "memoria", "razonamiento", "cuanto mide", "cuantos parametros"].some(term => normalized.includes(term));
+}
+
+function activeRuntimeSnapshot(mode: string) {
+  const active = Array.from(jobs.values()).find(job => job.status === "RUNNING" || job.status === "STARTING");
+  return { mode, status: active?.status ?? "NOT_CONNECTED", config: active?.config };
+}
 
 function contentToText(content: unknown): string {
   if (typeof content === "string") return content;
@@ -21,9 +32,9 @@ function contentToText(content: unknown): string {
   return "";
 }
 
-function registerTrainingProcess(child: ChildProcessWithoutNullStreams) {
+function registerTrainingProcess(child: ChildProcessWithoutNullStreams, config?: Record<string, unknown>) {
   const id = randomUUID();
-  const job: Job = { id, status: "STARTING", process: child, metrics: [] };
+  const job: Job = { id, status: "STARTING", process: child, metrics: [], config };
   jobs.set(id, job);
   let buffer = "";
   child.stdout.on("data", chunk => {
@@ -55,7 +66,7 @@ function startTraining(input: { dim: number; layers: number; experts: number; le
   const script = join(process.cwd(), "engine", "train_real.py");
   if (!existsSync(script)) throw new Error("El ejecutor PyTorch real no está instalado en este entorno.");
   const child = spawn("python3", [script, "--dim", String(input.dim), "--layers", String(input.layers), "--experts", String(input.experts), "--learning-rate", String(input.learningRate), "--steps", String(input.steps)], { cwd: process.cwd() });
-  return registerTrainingProcess(child);
+  return registerTrainingProcess(child, { profile: "base", ...input });
 }
 
 function startNextGenTraining(input: { dim: number; layers: number; experts: number; learningRate: number; steps: number; seqLen: number; batchSize: number }) {
@@ -63,7 +74,7 @@ function startNextGenTraining(input: { dim: number; layers: number; experts: num
   const corpus = join(process.cwd(), "engine", "corpora", "aethel_repo_corpus.txt");
   if (!existsSync(script) || !existsSync(corpus)) throw new Error("El ejecutor o corpus real de Aethel NextGen no está instalado en este entorno.");
   const child = spawn("python3", [script, "--corpus", corpus, "--dim", String(input.dim), "--layers", String(input.layers), "--experts", String(input.experts), "--learning-rate", String(input.learningRate), "--steps", String(input.steps), "--seq-len", String(input.seqLen), "--batch-size", String(input.batchSize)], { cwd: process.cwd() });
-  return registerTrainingProcess(child);
+  return registerTrainingProcess(child, { profile: "nextgen", ...input });
 }
 
 export const appRouter = router({
@@ -76,6 +87,12 @@ export const appRouter = router({
     send: publicProcedure.input(z.object({ sessionId: z.string().min(1).max(96), message: z.string().min(1).max(12000), architectureMode: z.enum(architectureModes).default("hybrid_aethel") })).mutation(async ({ input, ctx }) => {
       const history = await getChatHistory(input.sessionId, 18);
       await saveChatMessage({ sessionId: input.sessionId, userId: ctx.user?.id, role: "user", content: input.message, architectureMode: input.architectureMode, tokensProcessed: Math.ceil(input.message.length / 4) });
+      if (requestsAethelSpecification(input.message)) {
+        const reply = formatAethelSpecificationForChat(activeRuntimeSnapshot(input.architectureMode));
+        const tokens = Math.ceil((input.message.length + reply.length) / 4);
+        await saveChatMessage({ sessionId: input.sessionId, userId: ctx.user?.id, role: "assistant", content: reply, architectureMode: input.architectureMode, tokensProcessed: tokens, metadata: JSON.stringify({ model: "Aethel specification engine", pillars: 5, source: "calculated" }) });
+        return { reply, tokensProcessed: tokens, model: "Aethel specification engine" };
+      }
       const response = await invokeLLM({ messages: [{ role: "system", content: `${aethelSystemPrompt}\nModo activo: ${input.architectureMode}.` }, ...history.reverse().map(item => ({ role: item.role as "user" | "assistant", content: item.content })), { role: "user", content: input.message }] });
       const reply = contentToText(response.choices?.[0]?.message?.content) || "El LLM real no devolvió contenido en esta iteración.";
       const tokens = Math.ceil((input.message.length + reply.length) / 4);
@@ -84,12 +101,15 @@ export const appRouter = router({
     }),
     history: publicProcedure.input(z.object({ sessionId: z.string().min(1).max(96) })).query(({ input }) => getChatHistory(input.sessionId, 60)),
   }),
+  aethel: router({
+    specification: publicProcedure.query(() => getAethelSpecification()),
+  }),
   engine: router({
     status: publicProcedure.query(() => {
       const active = Array.from(jobs.values()).find(job => job.status === "RUNNING" || job.status === "STARTING");
-      if (!active) return { status: "NOT_CONNECTED" as const, kernel: "Aethel PyTorch runtime", telemetry: "unavailable", message: "No hay un proceso Aethel activo. Inicia un entrenamiento real para recibir telemetría.", tokensPerSecond: null, loss: null, vram: null, kvCache: null, experts: null };
+      if (!active) return { status: "NOT_CONNECTED" as const, kernel: "Aethel PyTorch runtime", telemetry: "unavailable", message: "No hay un proceso Aethel activo. Inicia un entrenamiento real para recibir telemetría.", tokensPerSecond: null, loss: null, vram: null, kvCache: null, experts: null, config: null };
       const latest = active.metrics.at(-1) as { tokens?: number; elapsed?: number; loss?: number; vram?: number; experts?: number[] | null; kv_cache?: number | null } | undefined;
-      return { status: active.status, jobId: active.id, kernel: "Aethel PyTorch runtime", telemetry: "process", tokensPerSecond: typeof latest?.tokens === "number" && typeof latest.elapsed === "number" && latest.elapsed > 0 ? Math.round(latest.tokens / latest.elapsed) : null, loss: latest?.loss ?? null, vram: latest?.vram ?? null, kvCache: latest?.kv_cache ?? null, experts: latest?.experts ?? null };
+      return { status: active.status, jobId: active.id, kernel: "Aethel PyTorch runtime", telemetry: "process", tokensPerSecond: typeof latest?.tokens === "number" && typeof latest.elapsed === "number" && latest.elapsed > 0 ? Math.round(latest.tokens / latest.elapsed) : null, loss: latest?.loss ?? null, vram: latest?.vram ?? null, kvCache: latest?.kv_cache ?? null, experts: latest?.experts ?? null, config: active.config ?? null };
     }),
   }),
   training: router({

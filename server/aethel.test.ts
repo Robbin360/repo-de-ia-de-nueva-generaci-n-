@@ -1,4 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+const chatStore = vi.hoisted(() => ({ saved: [] as Array<Record<string, unknown>> }));
+
+vi.mock("./db", () => ({
+  getChatHistory: vi.fn(async () => []),
+  saveChatMessage: vi.fn(async (message: Record<string, unknown>) => { chatStore.saved.push(message); }),
+}));
+
+vi.mock("./_core/llm", () => ({ invokeLLM: vi.fn() }));
+
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
@@ -21,5 +31,25 @@ describe("Aethel real runtime", () => {
     expect(result.models.map(model => model.name)).toEqual(["Aethel", "GPT-4", "Llama", "Mixtral"]);
     expect(result.models.every(model => model.mmlu === null && model.humaneval === null && model.gsm8k === null)).toBe(true);
     expect(result.note).toContain("No hay resultados verificables");
+  });
+
+  it("expone presupuestos calculados y límites cognitivos verificables", async () => {
+    const result = await appRouter.createCaller(ctx).aethel.specification();
+    expect(result.presets.map(item => item.name)).toEqual(["pilot-100m", "research-300m", "scale-1b"]);
+    expect(result.presets.map(item => item.parametersMillions)).toEqual([97.16, 344.34, 1192.68]);
+    expect(result.memory.semantic).toContain("Prototipos vectoriales");
+    expect(result.reasoning.protocol).toEqual(["recuperación", "integración", "predicción"]);
+    expect(result.limitations.some(item => item.includes("GPU CUDA"))).toBe(true);
+  });
+
+  it("devuelve la ficha técnica desde el flujo de chat sin invocar un LLM", async () => {
+    chatStore.saved.length = 0;
+    const result = await appRouter.createCaller(ctx).chat.send({ sessionId: "aethel-spec-test", message: "¿Cuántos parámetros y qué memoria tiene?", architectureMode: "hybrid_aethel" });
+    expect(result.model).toBe("Aethel specification engine");
+    expect(result.reply).toContain("Configuración activa");
+    expect(result.reply).toContain("hybrid_aethel");
+    expect(result.reply).toContain("97.16 M");
+    expect(result.reply).toContain("NOT_CONNECTED");
+    expect(chatStore.saved).toHaveLength(2);
   });
 });
