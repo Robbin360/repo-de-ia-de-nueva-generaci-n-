@@ -190,8 +190,11 @@
 - [x] Comprobar accesibilidad real de holdout, tokenizador y referencias de benchmark en el modo de lanzamiento aprobado
 - [x] Probar el rechazo de rutas de evaluación inexistentes y el bloqueo del launcher antes de instalar o descargar
 - [x] Añadir un inspector de compatibilidad de checkpoints que informe claves y formas antes de cualquier carga estricta en Kaggle
+- [ ] Configurar el cuaderno Kaggle para guardar una versión comprometida mediante Save & Run All, preservando ejecución al cerrar la página
+- [ ] Pedir confirmación final específica antes de iniciar la versión comprometida que consume cuota gratuita
 - [x] Implementar una variante de refinamiento adaptativo con pasos máximos, umbral de dificultad y telemetría de cómputo efectiva
 - [x] Comparar la variante adaptativa contra el baseline con una prueba reproducible de pérdida y coste de refinamiento
 - [x] Exponer la variante ARC en la ficha técnica del chat con su presupuesto calculado, telemetría y límites experimentales
 - [x] Añadir una prueba reproducible de carga y reanudación de checkpoints para baseline y ARC, incluyendo activar/desactivar ARC
 - [x] Extender la comparación ARC-baseline con medición real de RAM/VRAM según el entorno y persistirla en el reporte experimental
+- [x] Sustituir el flujo heredado de Aethel V3 en Kaggle por scripts autónomos de preparación, empaquetado de fuentes y lanzamiento de Aethel NextGen sin reutilizar checkpoints históricos incompatibles
