@@ -152,8 +152,13 @@
 - [x] Documentar TypeScript/Node.js y Tailwind/React como interfaz y capa de conexión de Aethel
 - [x] Restringir Python/PyTorch en la especificación a laboratorio temporal de topología, entrenamiento y horneado de pesos
 - [ ] Implementar y validar la ruta Triton obligatoria para atención causal y routing/dispatch MoE en GPU; actualmente sólo SwiGLU está integrado
+- [x] Preparar kernels Triton de atención causal de decodificación y selección top-2 del router con equivalencia CPU y preflight CUDA explícito
 - [x] Diseñar el contrato de inferencia local token a token para un runtime Mojo
-- [ ] Diseñar el servicio Rust 24/7 completo para memoria vectorial/RAG, consolidación y ciclo de sueño; actualmente sólo existe el núcleo local validado
+- [ ] Desplegar y validar el servicio Rust persistente en un host autorizado con supervisión real, healthcheck y restauración automática de snapshot
+- [x] Añadir una plantilla de despliegue supervisado para el servicio Rust y una prueba de configuración sin declarar una instancia 24/7 activa
+- [x] Implementar y probar un transporte Unix-socket local para el protocolo JSONL de memoria Rust
+- [x] Implementar una capa local de memoria vectorial/RAG citable en Rust y probar recuperación end-to-end; el índice sigue siendo acotado y local
+- [x] Mantener documentado que el servicio Rust actual está preparado localmente, pero no activo 24/7 hasta el despliegue autorizado
 - [x] Auditar e implementar las partes posibles sin GPU CUDA ni runtime Mojo instalado, manteniendo marcadas las dependencias de hardware
 - [x] Crear un núcleo Rust comprobable para registros de memoria, consolidación y recuperación trazable sin afirmar un RAG distribuido terminado
 - [x] Definir un contrato de artefactos y de KV-cache para que un runtime Mojo de inferencia local pueda validarse contra PyTorch

@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import math
 from typing import Optional, Tuple, List
 from dataclasses import dataclass
-from triton_bridge import fused_swiglu
+from triton_bridge import causal_decode_attention, fused_swiglu, top2_router
 
 @dataclass
 class AethelConfig:
@@ -106,9 +106,13 @@ class SparseMoE(nn.Module):
         # Probabilidades completas del router (para pérdida auxiliar exacta)
         router_probs = F.softmax(router_logits, dim=-1, dtype=torch.float)
         
-        # Selección Top-K
-        topk_weights, selected_experts = torch.topk(router_probs, self.top_k, dim=-1)
-        topk_weights = topk_weights / topk_weights.sum(dim=-1, keepdim=True)
+        # Selección Top-K. El kernel Triton conserva el gradiente del router
+        # usando PyTorch durante entrenamiento y acelera top-2 en inferencia.
+        if not self.training and self.top_k == 2:
+            topk_weights, selected_experts = top2_router(router_logits, require_triton=self.experts[0].require_triton and x.is_cuda)
+        else:
+            topk_weights, selected_experts = torch.topk(router_probs, self.top_k, dim=-1)
+            topk_weights = topk_weights / topk_weights.sum(dim=-1, keepdim=True)
         topk_weights = topk_weights.to(x.dtype)
         
         final_hidden_states = torch.zeros(
@@ -156,6 +160,7 @@ class Attention(nn.Module):
         self.n_kv_heads = config.n_kv_heads
         self.head_dim = config.dim // config.n_heads
         self.n_rep = self.n_heads // self.n_kv_heads
+        self.require_triton = config.require_triton
 
         self.wq = nn.Linear(config.dim, config.n_heads * self.head_dim, bias=False)
         self.wk = nn.Linear(config.dim, config.n_kv_heads * self.head_dim, bias=False)
@@ -195,12 +200,16 @@ class Attention(nn.Module):
         k_trans = k_rep.transpose(1, 2)
         v_trans = v_rep.transpose(1, 2)
 
-        # FlashAttention vía PyTorch scaled_dot_product_attention
-        output = F.scaled_dot_product_attention(
-            q_trans, k_trans, v_trans, 
-            attn_mask=mask, 
-            is_causal=(mask is None and kv_cache is None and T > 1)
-        )
+        # Triton acelera el paso de decodificación con KV-cache; el prefill
+        # conserva SDPA hasta validar un kernel causal por bloques en GPU.
+        if kv_cache is not None and T == 1 and mask is None:
+            output = causal_decode_attention(q_trans, k_trans, v_trans, require_triton=self.require_triton and x.is_cuda)
+        else:
+            output = F.scaled_dot_product_attention(
+                q_trans, k_trans, v_trans,
+                attn_mask=mask,
+                is_causal=(mask is None and kv_cache is None and T > 1)
+            )
         
         output = output.transpose(1, 2).contiguous().view(B, T, C)
         return self.wo(output), new_kv_cache
