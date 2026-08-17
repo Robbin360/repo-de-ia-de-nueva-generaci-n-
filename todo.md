@@ -135,9 +135,9 @@
 - [x] Exponer en la ficha técnica del chat el modo cognitivo activo y la configuración verificable del motor cuando exista un proceso real
 - [x] Añadir una prueba automatizada del flujo de ficha técnica en `chat.send` sin invocar una salida LLM no verificable
 - [x] Medir latencia o memoria de la caché KV frente a la ruta sin caché con un protocolo reproducible
-- [ ] Incorporar adaptadores de bajo rango opcionales en proyecciones de atención y MoE sin alterar la base por defecto
-- [ ] Exponer configuración y parámetros entrenables de la adaptación en el runner y los checkpoints
-- [ ] Probar el gradiente de adaptadores y medir la reducción de parámetros entrenables frente al ajuste completo
+- [x] Incorporar adaptadores de bajo rango opcionales en proyecciones de atención y MoE sin alterar la base por defecto
+- [x] Exponer configuración y parámetros entrenables de la adaptación en el runner y los checkpoints
+- [x] Probar el gradiente de adaptadores y medir la reducción de parámetros entrenables frente al ajuste completo
 
 ## Corrección de auditoría tecnológica del repositorio original
 

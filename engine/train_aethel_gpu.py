@@ -117,7 +117,7 @@ def run(args: argparse.Namespace) -> None:
 
     from tokenizers import Tokenizer
     tokenizer = Tokenizer.from_file(args.tokenizer)
-    config = NextGenConfig(vocab_size=tokenizer.get_vocab_size(), dim=args.dim, layers=args.layers, heads=args.heads, kv_heads=args.kv_heads, experts=args.experts, active_experts=args.active_experts, max_seq_len=args.seq_len, memory_slots=args.memory_slots, replay_capacity=args.replay_capacity, router_bias_step=args.router_bias_step, router_bias_limit=args.router_bias_limit)
+    config = NextGenConfig(vocab_size=tokenizer.get_vocab_size(), dim=args.dim, layers=args.layers, heads=args.heads, kv_heads=args.kv_heads, experts=args.experts, active_experts=args.active_experts, max_seq_len=args.seq_len, memory_slots=args.memory_slots, replay_capacity=args.replay_capacity, router_bias_step=args.router_bias_step, router_bias_limit=args.router_bias_limit, lora_rank=args.lora_rank, lora_alpha=args.lora_alpha, lora_freeze_base=not args.lora_train_base)
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
     core = AethelNextGen(config, output / f"episodic_rank_{rank}.jsonl").to(device)
@@ -188,7 +188,7 @@ def run(args: argparse.Namespace) -> None:
                 max_imbalance = max((item["imbalance"] for item in routing), default=0.0)
                 min_entropy = min((item["entropy"] for item in routing), default=1.0)
                 healthy = max_imbalance <= args.max_router_imbalance and min_entropy >= args.min_router_entropy
-                event = {"step": step, "loss": float(loss.detach().float().cpu()), "replay_loss": float(replay_loss.detach().float().cpu()) if replay_loss is not None else None, "total_loss": float(total_loss.detach().float().cpu() * args.gradient_accumulation), "tokens_per_second": (step * args.batch_size * args.seq_len * world_size) / elapsed, "world_size": world_size, "device": str(device), "runtime": runtime, "memory": target.export_memory_manifest(), "experts": list(target.core.last_expert_loads), "routing": routing, "router_health": {"healthy": healthy, "max_imbalance": max_imbalance, "min_entropy": min_entropy}, "config": asdict(config)}
+                event = {"step": step, "loss": float(loss.detach().float().cpu()), "replay_loss": float(replay_loss.detach().float().cpu()) if replay_loss is not None else None, "total_loss": float(total_loss.detach().float().cpu() * args.gradient_accumulation), "tokens_per_second": (step * args.batch_size * args.seq_len * world_size) / elapsed, "world_size": world_size, "device": str(device), "runtime": runtime, "memory": target.export_memory_manifest(), "experts": list(target.core.last_expert_loads), "routing": routing, "router_health": {"healthy": healthy, "max_imbalance": max_imbalance, "min_entropy": min_entropy}, "adaptation": target.lora_config, "parameters_trainable": sum(parameter.numel() for parameter in target.parameters() if parameter.requires_grad), "config": asdict(config)}
                 metrics.write(json.dumps(event, ensure_ascii=False) + "\n")
                 metrics.flush()
                 print(json.dumps(event, ensure_ascii=False), flush=True)
@@ -228,6 +228,9 @@ if __name__ == "__main__":
     parser.add_argument("--replay-batch-size", type=int, default=1)
     parser.add_argument("--router-bias-step", type=float, default=0.05)
     parser.add_argument("--router-bias-limit", type=float, default=0.5)
+    parser.add_argument("--lora-rank", type=int, default=0, help="Rango LoRA opcional; 0 mantiene ajuste completo.")
+    parser.add_argument("--lora-alpha", type=float, default=16.0)
+    parser.add_argument("--lora-train-base", action="store_true", help="Mantiene entrenables los pesos base además de LoRA.")
     parser.add_argument("--max-router-imbalance", type=float, default=0.30)
     parser.add_argument("--min-router-entropy", type=float, default=0.50)
     parser.add_argument("--grad-clip", type=float, default=1.0)

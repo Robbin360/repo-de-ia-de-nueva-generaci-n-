@@ -33,6 +33,9 @@ class NextGenConfig:
     memory_decay: float = 0.995
     router_bias_step: float = 0.05
     router_bias_limit: float = 0.5
+    lora_rank: int = 0
+    lora_alpha: float = 16.0
+    lora_freeze_base: bool = True
 
     def model_config(self) -> AethelConfig:
         return AethelConfig(vocab_size=self.vocab_size, dim=self.dim, n_layers=self.layers, n_heads=self.heads, n_kv_heads=self.kv_heads, n_experts=self.experts, active_experts=self.active_experts, max_seq_len=self.max_seq_len, router_bias_step=self.router_bias_step, router_bias_limit=self.router_bias_limit)
@@ -286,6 +289,8 @@ class AethelNextGen(nn.Module):
         self.register_buffer("memory_state", torch.zeros(1, config.dim), persistent=False)
         self.lora_config: dict | None = None
         self.last_metrics: dict = {"memory_hits": 0, "memory_records": len(self.memory.records), "semantic_records": len(self.semantic_memory.records), "replay_records": 0, "pillar": "Aethel NextGen"}
+        if config.lora_rank:
+            self.enable_lora(config.lora_rank, config.lora_alpha, config.lora_freeze_base)
 
     def enable_lora(self, rank: int = 8, alpha: float = 16.0, freeze_base: bool = True) -> dict:
         """Añade LoRA a Q/K/V/O y SwiGLU de cada experto; es opt-in y auditable."""
