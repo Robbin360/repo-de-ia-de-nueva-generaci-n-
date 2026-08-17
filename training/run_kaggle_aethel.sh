@@ -8,11 +8,16 @@ set -euo pipefail
 : "${AETHEL_DATA_DIR:=/kaggle/input/aethel-data}"
 : "${AETHEL_OUTPUT_DIR:=/kaggle/working/aethel-runs/nextgen-pilot}"
 : "${AETHEL_KAGGLE_DATASET:=}"
+: "${AETHEL_PERSISTENCE_MODE:=kaggle-dataset}"
 : "${AETHEL_EVALUATION_CONFIG:=$AETHEL_DATA_DIR/evaluation/evaluation_plan.json}"
 : "${AETHEL_RESUME_CHECKPOINT:=}"
 
-if [[ -z "$AETHEL_KAGGLE_DATASET" ]]; then
-  echo "Falta AETHEL_KAGGLE_DATASET=usuario/dataset-privado; no se permite iniciar sin persistencia de artefactos." >&2
+if [[ "$AETHEL_PERSISTENCE_MODE" != "kaggle-dataset" && "$AETHEL_PERSISTENCE_MODE" != "notebook-output" ]]; then
+  echo "AETHEL_PERSISTENCE_MODE debe ser kaggle-dataset o notebook-output." >&2
+  exit 2
+fi
+if [[ "$AETHEL_PERSISTENCE_MODE" == "kaggle-dataset" && -z "$AETHEL_KAGGLE_DATASET" ]]; then
+  echo "Falta AETHEL_KAGGLE_DATASET=usuario/dataset-privado para el modo kaggle-dataset." >&2
   exit 2
 fi
 
@@ -80,10 +85,16 @@ python engine/train_aethel_gpu.py \
   --save-every "${AETHEL_SAVE_EVERY:-500}" \
   --resume
 
-# Versiona automáticamente el resultado en un Dataset privado del dueño del Notebook.
-# El Kaggle API token debe existir solo en los secretos del Notebook. No se escribe en Git.
-python engine/export_artifacts.py \
-  --source "$AETHEL_OUTPUT_DIR" \
-  --mode kaggle-dataset \
-  --staging /kaggle/working/aethel-persist-staging \
-  --dataset "$AETHEL_KAGGLE_DATASET"
+if [[ "$AETHEL_PERSISTENCE_MODE" == "kaggle-dataset" ]]; then
+  # El token de Kaggle debe existir sólo en los secretos del Notebook; nunca en Git.
+  python engine/export_artifacts.py \
+    --source "$AETHEL_OUTPUT_DIR" \
+    --mode kaggle-dataset \
+    --staging /kaggle/working/aethel-persist-staging \
+    --dataset "$AETHEL_KAGGLE_DATASET"
+else
+  # Un Commit de Kaggle conserva /kaggle/working como salida versionada del cuaderno.
+  test -f "$AETHEL_OUTPUT_DIR/latest.pt"
+  test -f "$AETHEL_OUTPUT_DIR/metrics.jsonl"
+  printf 'PERSISTED_AS=notebook-output\nOUTPUT_DIR=%s\n' "$AETHEL_OUTPUT_DIR" | tee "$AETHEL_OUTPUT_DIR/persistence_receipt.txt"
+fi

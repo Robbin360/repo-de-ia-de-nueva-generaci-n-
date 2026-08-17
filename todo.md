@@ -198,3 +198,9 @@
 - [x] Añadir una prueba reproducible de carga y reanudación de checkpoints para baseline y ARC, incluyendo activar/desactivar ARC
 - [x] Extender la comparación ARC-baseline con medición real de RAM/VRAM según el entorno y persistirla en el reporte experimental
 - [x] Sustituir el flujo heredado de Aethel V3 en Kaggle por scripts autónomos de preparación, empaquetado de fuentes y lanzamiento de Aethel NextGen sin reutilizar checkpoints históricos incompatibles
+- [x] Investigar y fijar un conjunto de fuentes reales bilingües, enciclopédicas y de razonamiento con licencia, revisión inmutable, procedencia y límites para un piloto Aethel NextGen
+- [x] Mejorar la receta de entrenamiento NextGen para mezcla de datos, currículo, estabilidad MoE, evaluación bilingüe y registros reproducibles
+- [ ] Construir y validar un Dataset privado `aethel-nextgen-data` sin datos sintéticos ni checkpoints V3
+- [ ] Crear un cuaderno privado Kaggle independiente para Aethel NextGen con entradas separadas, GPU T4 x2 y borrador no ejecutado
+- [ ] Ejecutar Save Version → Save & Run All solo tras validar los controles de datos, evaluación y persistencia del cuaderno NextGen autorizado
+- [x] Adaptar el flujo de datos bilingües real para construirlo dentro de Kaggle con límites de memoria, reintentos, hashes y evaluación retenida

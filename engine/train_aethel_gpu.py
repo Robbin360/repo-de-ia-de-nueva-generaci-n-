@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
+import math
 import os
 import random
 import time
@@ -71,6 +72,14 @@ def atomic_save(payload: dict, path: Path) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
     torch.save(payload, temporary)
     temporary.replace(path)
+
+
+def learning_rate_at_step(step: int, max_steps: int, peak: float, minimum: float, warmup_steps: int) -> float:
+    """Warmup lineal y decaimiento coseno; el valor queda registrado por paso."""
+    if warmup_steps and step <= warmup_steps:
+        return peak * step / warmup_steps
+    progress = min(1.0, max(0.0, (step - warmup_steps) / max(1, max_steps - warmup_steps)))
+    return minimum + 0.5 * (peak - minimum) * (1.0 + math.cos(math.pi * progress))
 
 
 def build_model(core: AethelNextGen, args: argparse.Namespace, world_size: int, device: torch.device):
@@ -151,6 +160,9 @@ def run(args: argparse.Namespace) -> None:
     optimizer.zero_grad(set_to_none=True)
     with metrics_path.open("a", encoding="utf-8") as metrics:
         for step in range(start_step + 1, args.max_steps + 1):
+            current_lr = learning_rate_at_step(step, args.max_steps, args.learning_rate, args.min_learning_rate, args.warmup_steps)
+            for group in optimizer.param_groups:
+                group["lr"] = current_lr
             try:
                 x, y = next(batches)
             except StopIteration:
@@ -170,6 +182,8 @@ def run(args: argparse.Namespace) -> None:
                         _, replay_loss, _ = model(replay_x, replay_y)
                         total_loss = total_loss + args.replay_loss_weight * replay_loss
                 total_loss = total_loss / args.gradient_accumulation
+            if not torch.isfinite(total_loss):
+                raise FloatingPointError(f"Pérdida no finita en el paso {step}; se preserva el último checkpoint atómico y se detiene la corrida.")
             scaler.scale(total_loss).backward()
             if step % args.gradient_accumulation == 0:
                 scaler.unscale_(optimizer)
@@ -188,7 +202,7 @@ def run(args: argparse.Namespace) -> None:
                 max_imbalance = max((item["imbalance"] for item in routing), default=0.0)
                 min_entropy = min((item["entropy"] for item in routing), default=1.0)
                 healthy = max_imbalance <= args.max_router_imbalance and min_entropy >= args.min_router_entropy
-                event = {"step": step, "loss": float(loss.detach().float().cpu()), "replay_loss": float(replay_loss.detach().float().cpu()) if replay_loss is not None else None, "total_loss": float(total_loss.detach().float().cpu() * args.gradient_accumulation), "tokens_per_second": (step * args.batch_size * args.seq_len * world_size) / elapsed, "world_size": world_size, "device": str(device), "runtime": runtime, "memory": target.export_memory_manifest(), "experts": list(target.core.last_expert_loads), "routing": routing, "router_health": {"healthy": healthy, "max_imbalance": max_imbalance, "min_entropy": min_entropy}, "adaptation": target.lora_config, "parameters_trainable": sum(parameter.numel() for parameter in target.parameters() if parameter.requires_grad), "config": asdict(config)}
+                event = {"step": step, "loss": float(loss.detach().float().cpu()), "replay_loss": float(replay_loss.detach().float().cpu()) if replay_loss is not None else None, "total_loss": float(total_loss.detach().float().cpu() * args.gradient_accumulation), "learning_rate": current_lr, "tokens_per_second": (step * args.batch_size * args.seq_len * world_size) / elapsed, "tokens_seen": step * args.batch_size * args.seq_len * world_size, "world_size": world_size, "device": str(device), "runtime": runtime, "memory": target.export_memory_manifest(), "experts": list(target.core.last_expert_loads), "routing": routing, "router_health": {"healthy": healthy, "max_imbalance": max_imbalance, "min_entropy": min_entropy}, "adaptation": target.lora_config, "parameters_trainable": sum(parameter.numel() for parameter in target.parameters() if parameter.requires_grad), "config": asdict(config)}
                 metrics.write(json.dumps(event, ensure_ascii=False) + "\n")
                 metrics.flush()
                 print(json.dumps(event, ensure_ascii=False), flush=True)
@@ -221,6 +235,8 @@ if __name__ == "__main__":
     parser.add_argument("--memory-slots", type=int, default=512)
     parser.add_argument("--replay-capacity", type=int, default=8192)
     parser.add_argument("--learning-rate", type=float, default=3e-4)
+    parser.add_argument("--min-learning-rate", type=float, default=3e-5)
+    parser.add_argument("--warmup-steps", type=int, default=500)
     parser.add_argument("--weight-decay", type=float, default=0.1)
     parser.add_argument("--replay-regularization", type=float, default=1e-5)
     parser.add_argument("--replay-loss-weight", type=float, default=0.10)
