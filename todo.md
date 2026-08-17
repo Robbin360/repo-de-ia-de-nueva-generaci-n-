@@ -215,3 +215,5 @@
 - [x] Robustecer el preparador bilingüe ante HTTP 429/502 con Retry-After, backoff progresivo y persistencia reanudable de descargas parciales
 - [x] Añadir pruebas deterministas de reintentos, Retry-After y reanudación de descargas parciales
 - [x] Regenerar el bundle de fuentes y la celda de Kaggle para el siguiente Save & Run All
+- [x] Añadir Open License Corpus `pd_books` con revisión fijada y umbral inglés trazable para superar 14.000 documentos
+- [x] Validar que la nueva fuente no sustituye silenciosamente las fuentes inglesas existentes
