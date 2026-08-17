@@ -217,3 +217,4 @@
 - [x] Regenerar el bundle de fuentes y la celda de Kaggle para el siguiente Save & Run All
 - [x] Añadir Open License Corpus `pd_books` con revisión fijada y umbral inglés trazable para superar 14.000 documentos
 - [x] Validar que la nueva fuente no sustituye silenciosamente las fuentes inglesas existentes
+- [x] Hacer que la celda de Kaggle priorice por contenido el bundle que incluye olc-pd-books-en frente a bundles antiguos montados simultáneamente
