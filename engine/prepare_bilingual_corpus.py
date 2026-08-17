@@ -13,7 +13,9 @@ import json
 import re
 import time
 import unicodedata
+import urllib.error
 import urllib.request
+from email.utils import parsedate_to_datetime
 from collections import defaultdict
 from pathlib import Path
 from typing import Iterable, Iterator
@@ -55,35 +57,81 @@ def hf_rows(source: dict) -> Iterator[dict]:
     )
 
 
-def hf_rows_api(source: dict) -> Iterator[dict]:
-    """Lee páginas pequeñas del servidor de datasets para no cargar un corpus completo en RAM."""
+RETRYABLE_HTTP_CODES = frozenset({429, 500, 502, 503, 504})
+
+
+def retry_delay(error: urllib.error.HTTPError, attempt: int, source: dict) -> float:
+    """Calcula un backoff determinista y respeta Retry-After cuando es válido."""
+    retry_after = error.headers.get("Retry-After") if error.headers else None
+    if retry_after:
+        try:
+            return max(0.0, min(float(retry_after), float(source.get("max_retry_delay_seconds", 300))))
+        except ValueError:
+            try:
+                retry_at = parsedate_to_datetime(retry_after).timestamp()
+                return max(0.0, min(retry_at - time.time(), float(source.get("max_retry_delay_seconds", 300))))
+            except (TypeError, ValueError, OverflowError):
+                pass
+    base = float(source.get("retry_backoff_seconds", 2.0))
+    ceiling = float(source.get("max_retry_delay_seconds", 300))
+    return min(ceiling, base * (2 ** attempt))
+
+
+def cached_json_page(path: Path) -> dict | None:
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) and isinstance(payload.get("rows"), list) else None
+
+
+def atomic_write_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".part")
+    temporary.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    temporary.replace(path)
+
+
+def hf_rows_api(source: dict, cache_dir: Path | None = None) -> Iterator[dict]:
+    """Lee páginas pequeñas y las conserva para reanudar tras un corte o un 429."""
     offset = 0
     batch_size = int(source.get("batch_size", 100))
     endpoint = source.get("endpoint", "https://datasets-server.huggingface.co/rows")
+    page_dir = (cache_dir or Path(".aethel-source-cache")) / source["id"]
     while True:
-        query = urlencode({
-            "dataset": source["dataset"],
-            "config": source["config"],
-            "split": source.get("split", "train"),
-            "offset": offset,
-            "length": batch_size,
-            "revision": source["revision"],
-        })
-        request = urllib.request.Request(f"{endpoint}?{query}", headers={"User-Agent": "AethelNextGenDataPrep/1.0"})
-        payload = None
-        for attempt in range(6):
-            try:
-                with urllib.request.urlopen(request, timeout=90) as response:
-                    payload = json.loads(response.read().decode("utf-8"))
-                break
-            except urllib.error.HTTPError as error:
-                if error.code not in (429, 500, 502, 503, 504) or attempt == 5:
-                    raise
-                retry_after = error.headers.get("Retry-After")
-                delay = float(retry_after) if retry_after and retry_after.isdigit() else min(30.0, 2.0 ** attempt)
-                print(f"Reintento de {source['id']} tras HTTP {error.code}: {delay:.1f}s", flush=True)
-                time.sleep(delay)
-        assert payload is not None
+        page_path = page_dir / f"page-{offset:012d}-{batch_size}.json"
+        payload = cached_json_page(page_path)
+        if payload is None:
+            query = urlencode({
+                "dataset": source["dataset"],
+                "config": source["config"],
+                "split": source.get("split", "train"),
+                "offset": offset,
+                "length": batch_size,
+                "revision": source["revision"],
+            })
+            request = urllib.request.Request(
+                f"{endpoint}?{query}",
+                headers={"User-Agent": "AethelNextGenDataPrep/1.1"},
+            )
+            for attempt in range(int(source.get("max_retries", 8))):
+                try:
+                    with urllib.request.urlopen(request, timeout=90) as response:
+                        payload = json.loads(response.read().decode("utf-8"))
+                    if not isinstance(payload, dict) or not isinstance(payload.get("rows"), list):
+                        raise RuntimeError(f"Respuesta inválida de {source['id']} en offset {offset}")
+                    atomic_write_json(page_path, payload)
+                    break
+                except urllib.error.HTTPError as error:
+                    if error.code not in RETRYABLE_HTTP_CODES or attempt + 1 >= int(source.get("max_retries", 8)):
+                        raise
+                    delay = retry_delay(error, attempt, source)
+                    print(f"Reintento de {source['id']} tras HTTP {error.code}: {delay:.1f}s", flush=True)
+                    time.sleep(delay)
+            else:
+                raise RuntimeError(f"Agotados los reintentos para {source['id']} en offset {offset}")
         rows = payload.get("rows", [])
         if not rows:
             return
@@ -131,10 +179,46 @@ def dictionary_text(row: dict, expected_language: str) -> str | None:
     return result
 
 
-def dictionary_rows(source: dict) -> Iterator[dict]:
-    request = urllib.request.Request(source["url"], headers={"User-Agent": "AethelNextGenDataPrep/1.0"})
-    with urllib.request.urlopen(request, timeout=90) as response:
-        raw = gzip.GzipFile(fileobj=response) if source["url"].endswith(".gz") else response
+def download_resumable(source: dict, cache_dir: Path) -> Path:
+    """Descarga a .part y reanuda con Range; sólo publica el archivo al completar."""
+    destination = cache_dir / source["id"] / Path(source["url"]).name
+    partial = destination.with_suffix(destination.suffix + ".part")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.is_file() and destination.stat().st_size > 0:
+        return destination
+    for attempt in range(int(source.get("max_retries", 8))):
+        start = partial.stat().st_size if partial.exists() else 0
+        headers = {"User-Agent": "AethelNextGenDataPrep/1.1"}
+        if start:
+            headers["Range"] = f"bytes={start}-"
+        request = urllib.request.Request(source["url"], headers=headers)
+        try:
+            with urllib.request.urlopen(request, timeout=90) as response:
+                append = start > 0 and response.headers.get("Content-Range")
+                if start and not append:
+                    partial.unlink(missing_ok=True)
+                    start = 0
+                mode = "ab" if append else "wb"
+                with partial.open(mode) as handle:
+                    while chunk := response.read(1024 * 1024):
+                        handle.write(chunk)
+                partial.replace(destination)
+                return destination
+        except urllib.error.HTTPError as error:
+            if error.code not in RETRYABLE_HTTP_CODES or attempt + 1 >= int(source.get("max_retries", 8)):
+                raise
+            delay = retry_delay(error, attempt, source)
+            print(f"Reintento de descarga {source['id']} tras HTTP {error.code}: {delay:.1f}s", flush=True)
+            time.sleep(delay)
+    raise RuntimeError(f"Agotados los reintentos de descarga para {source['id']}")
+
+
+def dictionary_rows(source: dict, cache_dir: Path | None = None) -> Iterator[dict]:
+    if cache_dir is None:
+        cache_dir = Path(".aethel-source-cache")
+    local_path = download_resumable(source, cache_dir)
+    with local_path.open("rb") as stream:
+        raw = gzip.GzipFile(fileobj=stream) if source["url"].endswith(".gz") else stream
         for raw_line in raw:
             try:
                 row = json.loads(raw_line.decode("utf-8"))
@@ -145,14 +229,14 @@ def dictionary_rows(source: dict) -> Iterator[dict]:
                 yield {"text": text}
 
 
-def source_rows(source: dict) -> Iterable[dict]:
+def source_rows(source: dict, cache_dir: Path | None = None) -> Iterable[dict]:
     kind = source["kind"]
     if kind == "hf_text":
         return hf_rows(source)
     if kind == "hf_rows_api":
-        return hf_rows_api(source)
+        return hf_rows_api(source, cache_dir)
     if kind == "wiktionary_jsonl":
-        return dictionary_rows(source)
+        return dictionary_rows(source, cache_dir)
     raise ValueError(f"Tipo de fuente no admitido: {kind}")
 
 
@@ -191,7 +275,8 @@ def run(args: argparse.Namespace) -> None:
     source_counts: dict[str, dict[str, int]] = {source["id"]: defaultdict(int) for source in sources}
     source_hashes = {source["id"]: hashlib.sha256() for source in sources}
     language_counts: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
-    streams = {source["id"]: iter(source_rows(source)) for source in sources}
+    cache_dir = output / ".source_cache"
+    streams = {source["id"]: iter(source_rows(source, cache_dir)) for source in sources}
     active = list(sources)
     shard_number, records_in_shard = 0, 0
     shards: list[dict[str, str]] = []

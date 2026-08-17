@@ -24,6 +24,9 @@ done
 rm -rf "$SOURCE_ROOT/engine/__pycache__" "$SOURCE_ROOT/training/__pycache__"
 rm -rf "$SOURCE_ROOT/engine/artifacts" "$SOURCE_ROOT/engine/corpora"
 rm -f "$SOURCE_ROOT/engine/train_aethel_v3.py"
+# Las celdas de bootstrap son artefactos de operación de Kaggle, no código fuente
+# del bundle; excluirlas evita que sus nombres históricos activen el guard V3.
+rm -f "$SOURCE_ROOT"/training/KAGGLE_NEXTGEN_CELL_*.py
 find "$SOURCE_ROOT" -type d -name '__pycache__' -prune -exec rm -rf {} +
 find "$SOURCE_ROOT" -type f -name '*.pyc' -delete
 

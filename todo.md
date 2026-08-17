@@ -212,3 +212,6 @@
 - [x] Diagnosticar la versión comprometida #1: falló antes del entrenamiento porque `/kaggle/input/aethel-nextgen-source` montó cero archivos `.gz`
 - [ ] Corregir la versión del Dataset adjunta y verificar que el paquete `.gz` esté visible en `/kaggle/input/aethel-nextgen-source`
 - [ ] Crear una nueva versión comprometida sólo después de pasar el bootstrap de entrada y conservar el registro del resultado real
+- [x] Robustecer el preparador bilingüe ante HTTP 429/502 con Retry-After, backoff progresivo y persistencia reanudable de descargas parciales
+- [x] Añadir pruebas deterministas de reintentos, Retry-After y reanudación de descargas parciales
+- [x] Regenerar el bundle de fuentes y la celda de Kaggle para el siguiente Save & Run All

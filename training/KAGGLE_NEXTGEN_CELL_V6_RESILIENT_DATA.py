@@ -1,0 +1,80 @@
+import hashlib
+import os
+import shutil
+import tarfile
+from pathlib import Path
+
+os.environ["AETHEL_DATA_DIR"] = "/kaggle/working/aethel-nextgen-data"
+os.environ["AETHEL_PERSISTENCE_MODE"] = "notebook-output"
+os.environ["AETHEL_BUILD_DATA_IN_KAGGLE"] = "YES"
+os.environ["AETHEL_RUN_AUTHORIZED"] = "YES"
+
+kaggle_input = Path("/kaggle/input")
+if not kaggle_input.is_dir():
+    raise RuntimeError(
+        "Kaggle no montó /kaggle/input. Adjunta aethel-nextgen-source en Add Input."
+    )
+
+files = sorted(path for path in kaggle_input.rglob("*") if path.is_file())
+if not files:
+    raise RuntimeError("No hay archivos montados bajo /kaggle/input.")
+
+candidates = []
+for path in files:
+    try:
+        with tarfile.open(path, mode="r:*") as archive:
+            names = archive.getnames()
+        required = {
+            "launcher": any(
+                name.endswith("training/run_kaggle_nextgen_in_situ.sh")
+                for name in names
+            ),
+            "trainer": any(name.endswith("engine/train_aethel_gpu.py") for name in names),
+            "source_count": len(names),
+            "size": path.stat().st_size,
+        }
+        if required["launcher"] and required["trainer"]:
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            candidates.append((path, required, digest))
+    except (tarfile.TarError, OSError):
+        continue
+
+if not candidates:
+    raise RuntimeError(
+        "No se encontró un bundle Aethel válido con launcher y trainer. "
+        f"Archivos montados: {[str(path) for path in files]}"
+    )
+
+# Si Kaggle montó copias duplicadas, usamos la más completa y grande.
+# En empate, el hash y la ruta hacen la elección reproducible.
+candidates.sort(
+    key=lambda item: (item[1]["source_count"], item[1]["size"], item[2], str(item[0])),
+    reverse=True,
+)
+bundle, details, digest = candidates[0]
+print(
+    "Bundles válidos detectados: "
+    f"{len(candidates)}; seleccionado: {bundle} "
+    f"(archivos internos={details['source_count']}, "
+    f"bytes={details['size']}, sha256={digest[:16]}...)"
+)
+
+if len(candidates) > 1:
+    print("Copias descartadas:")
+    for discarded, discarded_details, discarded_digest in candidates[1:]:
+        print(
+            f"- {discarded} (archivos internos={discarded_details['source_count']}, "
+            f"bytes={discarded_details['size']}, sha256={discarded_digest[:16]}...)"
+        )
+
+target = Path("/kaggle/working/aethel-nextgen-source")
+shutil.rmtree(target, ignore_errors=True)
+with tarfile.open(bundle, mode="r:*") as archive:
+    archive.extractall("/kaggle/working", filter="data")
+
+launcher = target / "training" / "run_kaggle_nextgen_in_situ.sh"
+if not launcher.is_file():
+    raise RuntimeError(f"El bundle se extrajo, pero falta el launcher: {launcher}")
+
+os.environ["AETHEL_SOURCE_DIR"] = str(target)
+!bash {launcher}
