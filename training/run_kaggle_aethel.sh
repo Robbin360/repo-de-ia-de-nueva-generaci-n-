@@ -71,7 +71,7 @@ python engine/train_aethel_gpu.py \
   --corpus-dir "$AETHEL_DATA_DIR/prepared" \
   --tokenizer "$AETHEL_DATA_DIR/tokenizer/aethel-bpe.json" \
   --output "$AETHEL_OUTPUT_DIR" \
-  --max-steps "${AETHEL_MAX_STEPS:-12000}" \
+  --max-steps "${AETHEL_MAX_STEPS:-4992}" \
   --dim "${AETHEL_DIM:-512}" \
   --layers "${AETHEL_LAYERS:-4}" \
   --heads "${AETHEL_HEADS:-8}" \
@@ -82,7 +82,8 @@ python engine/train_aethel_gpu.py \
   --batch-size "${AETHEL_BATCH_SIZE:-2}" \
   --gradient-accumulation "${AETHEL_GRAD_ACCUM:-16}" \
   --precision "$AETHEL_PRECISION" \
-  --save-every "${AETHEL_SAVE_EVERY:-500}" \
+  --save-every "${AETHEL_SAVE_EVERY:-192}" \
+  --keep-snapshots "${AETHEL_KEEP_SNAPSHOTS:-3}" \
   --resume
 
 if [[ "$AETHEL_PERSISTENCE_MODE" == "kaggle-dataset" ]]; then
@@ -95,6 +96,12 @@ if [[ "$AETHEL_PERSISTENCE_MODE" == "kaggle-dataset" ]]; then
 else
   # Un Commit de Kaggle conserva /kaggle/working como salida versionada del cuaderno.
   test -f "$AETHEL_OUTPUT_DIR/latest.pt"
-  test -f "$AETHEL_OUTPUT_DIR/metrics.jsonl"
-  printf 'PERSISTED_AS=notebook-output\nOUTPUT_DIR=%s\n' "$AETHEL_OUTPUT_DIR" | tee "$AETHEL_OUTPUT_DIR/persistence_receipt.txt"
+  test -f "$AETHEL_OUTPUT_DIR/metrics_rank_0.jsonl"
+  test -f "$AETHEL_OUTPUT_DIR/recovery_receipt.json"
+  test -f "$AETHEL_OUTPUT_DIR/tokenizer.json"
+  printf 'PERSISTED_AS=notebook-output\nOUTPUT_DIR=%s\nCHECKPOINT=%s\nMETRICS=%s\nTOKENIZER=%s\n' \
+    "$AETHEL_OUTPUT_DIR" \
+    "$AETHEL_OUTPUT_DIR/latest.pt" \
+    "$AETHEL_OUTPUT_DIR/metrics_rank_0.jsonl" \
+    "$AETHEL_OUTPUT_DIR/tokenizer.json" | tee "$AETHEL_OUTPUT_DIR/persistence_receipt.txt"
 fi

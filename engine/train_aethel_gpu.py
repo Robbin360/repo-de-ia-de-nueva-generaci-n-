@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import argparse
 import gzip
+import hashlib
 import json
 import math
 import os
 import random
+import shutil
+import signal
 import time
 from dataclasses import asdict
 from pathlib import Path
@@ -48,11 +51,12 @@ def corpus_records(corpus_dir: Path):
                     yield text
 
 
-def token_batches(corpus_dir: Path, tokenizer_path: Path, seq_len: int, batch_size: int, rank: int, world_size: int):
+def token_batches(corpus_dir: Path, tokenizer_path: Path, seq_len: int, batch_size: int, rank: int, world_size: int, skip_batches: int = 0):
     from tokenizers import Tokenizer
 
     tokenizer = Tokenizer.from_file(str(tokenizer_path))
     bucket: list[torch.Tensor] = []
+    emitted = 0
     for index, text in enumerate(corpus_records(corpus_dir)):
         if index % world_size != rank:
             continue
@@ -65,6 +69,10 @@ def token_batches(corpus_dir: Path, tokenizer_path: Path, seq_len: int, batch_si
             if len(bucket) == batch_size:
                 stacked = torch.stack(bucket)
                 bucket = []
+                if emitted < skip_batches:
+                    emitted += 1
+                    continue
+                emitted += 1
                 yield stacked[:, :-1], stacked[:, 1:]
 
 
@@ -72,6 +80,47 @@ def atomic_save(payload: dict, path: Path) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
     torch.save(payload, temporary)
     temporary.replace(path)
+
+
+def prune_portable_snapshots(output: Path, keep_snapshots: int) -> list[str]:
+    """Conserva los snapshots portátiles más recientes sin tocar ``latest.pt``.
+
+    ``latest.pt`` es el punto de reanudación completo con optimizador. Los
+    ``step_*.pt`` son copias de contingencia sin optimizador y se acotan para
+    que una sesión larga de Kaggle no consuma el disco de salida.
+    """
+    if keep_snapshots < 1:
+        raise ValueError("keep_snapshots debe ser al menos 1 para conservar una contingencia portable.")
+    snapshots = sorted(output.glob("step_*.pt"))
+    for obsolete in snapshots[:-keep_snapshots]:
+        obsolete.unlink()
+    return [path.name for path in snapshots[-keep_snapshots:]]
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def snapshot_tokenizer(tokenizer_path: Path, output: Path) -> tuple[Path, str]:
+    """Copia el tokenizador junto al peso para que el checkpoint sea portátil."""
+    output.mkdir(parents=True, exist_ok=True)
+    destination = output / "tokenizer.json"
+    source_hash = sha256_file(tokenizer_path)
+    if not destination.exists() or sha256_file(destination) != source_hash:
+        shutil.copy2(tokenizer_path, destination)
+    return destination, source_hash
+
+
+def validate_resume_metadata(checkpoint: dict, config: dict, tokenizer_hash: str) -> None:
+    """Impide reanudar con una topología o tokenizador distinto del checkpoint."""
+    if checkpoint.get("config") != config:
+        raise ValueError("El checkpoint no coincide con la configuración activa; la reanudación queda bloqueada.")
+    if checkpoint.get("tokenizer_sha256") != tokenizer_hash:
+        raise ValueError("El tokenizador activo no coincide con el hash del checkpoint; la reanudación queda bloqueada.")
 
 
 def learning_rate_at_step(step: int, max_steps: int, peak: float, minimum: float, warmup_steps: int) -> float:
@@ -129,6 +178,14 @@ def run(args: argparse.Namespace) -> None:
     config = NextGenConfig(vocab_size=tokenizer.get_vocab_size(), dim=args.dim, layers=args.layers, heads=args.heads, kv_heads=args.kv_heads, experts=args.experts, active_experts=args.active_experts, max_seq_len=args.seq_len, memory_slots=args.memory_slots, replay_capacity=args.replay_capacity, router_bias_step=args.router_bias_step, router_bias_limit=args.router_bias_limit, lora_rank=args.lora_rank, lora_alpha=args.lora_alpha, lora_freeze_base=not args.lora_train_base, require_triton=device.type == "cuda" and not args.allow_pytorch_fallback)
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
+    tokenizer_artifact = output / "tokenizer.json"
+    if rank == 0:
+        tokenizer_artifact, tokenizer_hash = snapshot_tokenizer(Path(args.tokenizer), output)
+    else:
+        tokenizer_hash = ""
+    if world_size > 1:
+        dist.barrier()
+    tokenizer_hash = sha256_file(tokenizer_artifact)
     core = AethelNextGen(config, output / f"episodic_rank_{rank}.jsonl").to(device)
     model = build_model(core, args, world_size, device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay, betas=(0.9, 0.95))
@@ -137,6 +194,7 @@ def run(args: argparse.Namespace) -> None:
     checkpoint_path = output / "latest.pt"
     if args.resume and checkpoint_path.exists():
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+        validate_resume_metadata(checkpoint, asdict(config), tokenizer_hash)
         target = unwrap_model(model)
         if args.strategy == "fsdp":
             from torch.distributed.fsdp import FullStateDictConfig, FullyShardedDataParallel as FSDP, StateDictType
@@ -153,9 +211,51 @@ def run(args: argparse.Namespace) -> None:
 
     target = unwrap_model(model)
     reference = {name: parameter.detach().clone() for name, parameter in target.named_parameters()}
-    batches = token_batches(Path(args.corpus_dir), Path(args.tokenizer), args.seq_len, args.batch_size, rank, world_size)
+    batches = token_batches(Path(args.corpus_dir), Path(args.tokenizer), args.seq_len, args.batch_size, rank, world_size, skip_batches=start_step)
     metrics_path = output / f"metrics_rank_{rank}.jsonl"
     started = time.time()
+    requested_signal: int | None = None
+
+    def request_graceful_stop(signum: int, _frame) -> None:
+        nonlocal requested_signal
+        requested_signal = signum
+
+    signal.signal(signal.SIGTERM, request_graceful_stop)
+    signal.signal(signal.SIGINT, request_graceful_stop)
+
+    def save_recoverable_checkpoint(step: int, event: dict | None, reason: str) -> None:
+        """Sólo se llama después de un paso de optimizador, por lo que es reanudable."""
+        model_state, optimizer_state = fsdp_checkpoint_state(model, optimizer, args.strategy)
+        if rank == 0:
+            payload = {
+                "model": model_state,
+                "optimizer": optimizer_state,
+                "step": step,
+                "config": asdict(config),
+                "event": event,
+                "tokenizer": str(tokenizer_artifact.resolve()),
+                "tokenizer_sha256": tokenizer_hash,
+                "strategy": args.strategy,
+                "checkpoint_reason": reason,
+            }
+            atomic_save(payload, checkpoint_path)
+            atomic_save({key: value for key, value in payload.items() if key != "optimizer"}, output / f"step_{step:08d}.pt")
+            retained_snapshots = prune_portable_snapshots(output, args.keep_snapshots)
+            receipt = {
+                "latest": checkpoint_path.name,
+                "step": step,
+                "reason": reason,
+                "tokenizer_sha256": tokenizer_hash,
+                "retained_snapshots": retained_snapshots,
+                "resume_contract": "Importe la salida comprometida como Dataset privado y fije AETHEL_RESUME_CHECKPOINT a latest.pt tras inspección.",
+            }
+            temporary = output / "recovery_receipt.json.tmp"
+            temporary.write_text(json.dumps(receipt, ensure_ascii=False) + "\n", encoding="utf-8")
+            temporary.replace(output / "recovery_receipt.json")
+        if world_size > 1:
+            dist.barrier()
+
+    last_checkpoint_step = start_step
     model.train()
     optimizer.zero_grad(set_to_none=True)
     with metrics_path.open("a", encoding="utf-8") as metrics:
@@ -185,7 +285,8 @@ def run(args: argparse.Namespace) -> None:
             if not torch.isfinite(total_loss):
                 raise FloatingPointError(f"Pérdida no finita en el paso {step}; se preserva el último checkpoint atómico y se detiene la corrida.")
             scaler.scale(total_loss).backward()
-            if step % args.gradient_accumulation == 0:
+            optimizer_updated = step % args.gradient_accumulation == 0
+            if optimizer_updated:
                 scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
                 scaler.step(optimizer)
@@ -206,13 +307,16 @@ def run(args: argparse.Namespace) -> None:
                 metrics.write(json.dumps(event, ensure_ascii=False) + "\n")
                 metrics.flush()
                 print(json.dumps(event, ensure_ascii=False), flush=True)
-            if step % args.save_every == 0 or step == args.max_steps:
-                model_state, optimizer_state = fsdp_checkpoint_state(model, optimizer, args.strategy)
-                if rank == 0:
-                    atomic_save({"model": model_state, "optimizer": optimizer_state, "step": step, "config": asdict(config), "event": event, "tokenizer": str(Path(args.tokenizer).resolve()), "strategy": args.strategy}, checkpoint_path)
-                    atomic_save({"model": model_state, "step": step, "config": asdict(config), "strategy": args.strategy}, output / f"step_{step:08d}.pt")
-                if world_size > 1:
-                    dist.barrier()
+            due = optimizer_updated and (step - last_checkpoint_step >= args.save_every or step == args.max_steps or requested_signal is not None)
+            if due:
+                reason = f"signal-{requested_signal}" if requested_signal is not None else ("final" if step == args.max_steps else "periodic")
+                save_recoverable_checkpoint(step, event if rank == 0 else None, reason)
+                last_checkpoint_step = step
+            if requested_signal is not None:
+                if rank == 0 and not due:
+                    marker = {"signal": requested_signal, "last_recoverable_step": last_checkpoint_step}
+                    (output / "interrupted_before_safe_boundary.json").write_text(json.dumps(marker, ensure_ascii=False) + "\n", encoding="utf-8")
+                break
     if world_size > 1:
         dist.destroy_process_group()
 
@@ -253,6 +357,7 @@ if __name__ == "__main__":
     parser.add_argument("--grad-clip", type=float, default=1.0)
     parser.add_argument("--observe-every", type=int, default=100)
     parser.add_argument("--save-every", type=int, default=1000)
+    parser.add_argument("--keep-snapshots", type=int, default=3, help="Número de snapshots step_*.pt portátiles que se conservan junto a latest.pt.")
     parser.add_argument("--precision", choices=["bf16", "fp16", "fp32"], default="bf16")
     parser.add_argument("--strategy", choices=["single", "ddp", "fsdp"], default="single")
     parser.add_argument("--seed", type=int, default=17)

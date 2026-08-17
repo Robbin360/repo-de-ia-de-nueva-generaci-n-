@@ -18,6 +18,9 @@ class KaggleNextGenInSituContractTest(unittest.TestCase):
         self.assertIn('AETHEL_PERSISTENCE_MODE:=kaggle-dataset', script)
         self.assertIn('"$AETHEL_PERSISTENCE_MODE" != "notebook-output"', script)
         self.assertIn("persistence_receipt.txt", script)
+        self.assertIn("metrics_rank_0.jsonl", script)
+        self.assertIn("recovery_receipt.json", script)
+        self.assertIn("tokenizer.json", script)
 
     def test_notebook_detects_one_compressed_bundle_without_assuming_remote_filename(self):
         root = pathlib.Path(__file__).resolve().parent

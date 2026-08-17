@@ -205,3 +205,6 @@
 - [ ] Ejecutar Save Version → Save & Run All solo tras validar los controles de datos, evaluación y persistencia del cuaderno NextGen autorizado
 - [x] Adaptar el flujo de datos bilingües real para construirlo dentro de Kaggle con límites de memoria, reintentos, hashes y evaluación retenida
 - [x] Hacer que el bootstrap del cuaderno detecte de forma segura el paquete de fuentes comprimido aunque Kaggle preserve un nombre remoto no descriptivo
+- [x] Documentar objetivos, criterios de éxito y límites verificables del piloto NextGen sin presentarlo como modelo de frontera final
+- [x] Reforzar checkpointing, exportación y reanudación automática para interrupciones o el límite de 12 horas de Kaggle
+- [x] Limitar la retención de snapshots portátiles y documentar la reanudación explícita entre sesiones sin depender de directorios efímeros
