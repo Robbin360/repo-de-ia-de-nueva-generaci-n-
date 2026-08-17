@@ -19,6 +19,9 @@
     },
     {
       "id": "kaikki-es-current", "kind": "wiktionary_jsonl", "dataset": "Kaikki/Wiktextract Spanish raw JSONL", "url": "https://kaikki.org/dictionary/Spanish/kaikki.org-dictionary-Spanish.jsonl.gz", "split": "snapshot", "text_column": "senses.glosses", "language": "es", "document_limit": 10000, "minimum_documents": 7000, "min_characters": 32, "license": "Wiktionary CC BY-SA/GFDL; conservar atribución y condiciones derivadas", "license_review": "Revisada para piloto; el extracto se limita a lemas, definiciones y un ejemplo.", "provenance_url": "https://kaikki.org/dictionary/rawdata.html", "approved": true, "enabled": true
+    },
+    {
+      "id": "project-gutenberg-en", "kind": "hf_rows_api", "dataset": "manu/project_gutenberg", "config": "default", "split": "en", "text_column": "text", "revision": "164853d214065df26a630ee1ab91a0c39e461caf", "language": "en", "document_limit": 10000, "minimum_documents": 7000, "batch_size": 100, "request_delay_seconds": 1.5, "max_retries": 10, "retry_backoff_seconds": 4.0, "max_retry_delay_seconds": 300, "min_characters": 240, "license": "Project Gutenberg License; obras generalmente de dominio público según la jurisdicción y el aviso individual", "license_review": "Revisada para piloto; conservar el aviso de licencia de Project Gutenberg, la procedencia y la verificación jurídica por obra antes de redistribuir.", "provenance_url": "https://huggingface.co/datasets/manu/project_gutenberg", "approved": true, "enabled": true
     }
   ],
   "filters": {"min_characters": 200, "max_characters": 50000, "remove_simple_pii": true, "deduplicate_exact": true, "deduplicate_near": "required-at-scale; no aplicado ni declarado como realizado en este piloto", "validation_percent": 0.005, "exclude_evaluation_sets": true}

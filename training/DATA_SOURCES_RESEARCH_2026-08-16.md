@@ -39,3 +39,14 @@ La revisión `b04c8d1ceb2f5cd4588862100d08de323dccfbaa` de `wikimedia/wikipedia`
 [13]: https://kaikki.org/dictionary/rawdata.html "Kaikki raw Wiktextract downloads"
 [14]: https://kaikki.org/dictionary/English/index.html "Kaikki English dictionary"
 [15]: https://kaikki.org/dictionary/Spanish/index.html "Kaikki Spanish dictionary"
+
+
+## Adición para la recuperación del piloto inglés
+
+La ejecución remota mostró que `olc-pd-books-en` quedó en 6.523 documentos ingleses después de varios HTTP 502, por lo que el mínimo de 14.000 no se alcanzó. Como fuente de recuperación se incorpora `manu/project_gutenberg`, usando exclusivamente el split `en`, que la tarjeta del dataset describe con 61,3 mil filas inglesas dentro de un total de 75.570 filas y texto de libros de Project Gutenberg. La revisión inmutable usada en el manifiesto es `164853d214065df26a630ee1ab91a0c39e461caf`, verificada mediante la API del Hub el 17 de agosto de 2026. El endpoint de filas devolvió dos filas reales con columnas `id` y `text`, y la primera contenía 358.423 caracteres; por tanto, es compatible con `hf_rows_api` y con el límite determinista de 10.000 documentos del piloto.
+
+Esta adición no elimina OLC, Wikipedia ni Kaikki y no rebaja la puerta de 14.000 documentos. La ejecución seguirá fallando si alguna fuente no alcanza su mínimo declarado o si el total inglés no llega a 14.000. La licencia de Project Gutenberg exige conservar su aviso y verificar por obra la situación jurídica en la jurisdicción de redistribución; el piloto conserva la procedencia y no autoriza por sí solo la distribución pública del corpus o del modelo.
+
+[16]: https://huggingface.co/datasets/manu/project_gutenberg "Project Gutenberg dataset card"
+[17]: https://huggingface.co/api/datasets/manu/project_gutenberg/revision/main "Project Gutenberg immutable revision metadata"
+[18]: https://www.gutenberg.org/policy/license.html "Project Gutenberg license policy"
