@@ -1,0 +1,12 @@
+{
+  "approved": false,
+  "holdout_path": "SET_A_PERSISTENT_HOLDOUT_PATH",
+  "tokenizer_path": "SET_A_VERSIONED_TOKENIZER_PATH",
+  "seed": 17,
+  "benchmark_references": {
+    "mmlu": "SET_A_LICENSED_REFERENCE_PATH",
+    "gsm8k": "SET_A_LICENSED_REFERENCE_PATH",
+    "humaneval": "SET_A_SANDBOXED_REFERENCE_PATH"
+  },
+  "notes": "Copiar fuera del repositorio, revisar fuentes/licencias y marcar approved=true sólo tras autorización humana. No contiene puntuaciones."
+}

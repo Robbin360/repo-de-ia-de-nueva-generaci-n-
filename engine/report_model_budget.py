@@ -10,6 +10,7 @@ PRESETS = {
     "pilot-100m": {"vocab_size": 32_000, "dim": 512, "layers": 4, "heads": 8, "kv_heads": 2, "experts": 8, "active_experts": 2, "max_seq_len": 1024},
     "research-300m": {"vocab_size": 32_000, "dim": 768, "layers": 8, "heads": 12, "kv_heads": 3, "experts": 8, "active_experts": 2, "max_seq_len": 2048},
     "scale-1b": {"vocab_size": 32_000, "dim": 1024, "layers": 16, "heads": 16, "kv_heads": 4, "experts": 8, "active_experts": 2, "max_seq_len": 2048},
+    "adaptive-research-300m": {"vocab_size": 32_000, "dim": 768, "layers": 8, "heads": 12, "kv_heads": 3, "experts": 8, "active_experts": 2, "max_seq_len": 2048, "adaptive_refinement_steps": 2},
 }
 
 
@@ -31,7 +32,9 @@ def report(name: str, values: dict) -> dict:
     # La Roca, El Líquido, neuromodulación, Espacio Global, GRU, norma y memory_to_core.
     # GRUCell contiene dos matrices de 3*dim x dim y dos sesgos de 3*dim.
     nextgen = (dim * dim + dim) + (dim * dim) + (dim + 1) + (9 * dim + 3) + (dim * dim) + (6 * dim * dim + 6 * dim) + (2 * dim) + (dim * dim)
-    total = core + nextgen
+    adaptive_steps = int(values.get("adaptive_refinement_steps", 0))
+    adaptive_parameters = (6 * dim * dim + 9 * dim + 1) if adaptive_steps else 0
+    total = core + nextgen + adaptive_parameters
     # Estimación transparente: pesos BF16, gradientes BF16 y dos estados Adam FP32 por parámetro.
     optimizer_bytes = total * (2 + 2 + 4 + 4)
     return {
@@ -44,6 +47,8 @@ def report(name: str, values: dict) -> dict:
         "experts": experts,
         "active_experts": values["active_experts"],
         "moe_hidden_dim": hidden_dim,
+        "adaptive_refinement_steps": adaptive_steps,
+        "adaptive_refinement_parameters": adaptive_parameters,
     }
 
 

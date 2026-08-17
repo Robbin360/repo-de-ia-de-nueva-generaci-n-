@@ -23,7 +23,7 @@ def main() -> None:
         assert manifest["episodic_records"] == 1
         assert manifest["semantic"]["semantic_records"] == 1
         trace = metrics["reasoning_trace"]
-        assert trace["protocol"] == ["recuperación", "integración", "predicción"]
+        assert trace["protocol"] == ["recuperación", "integración", "refinamiento presupuestado", "predicción"]
         assert trace["internal_chain_of_thought_exposed"] is False
         assert trace["episodic"]["selected"] == 1 and trace["semantic"]["selected"] == 1
         assert Path(manifest["semantic"]["path"]).is_file()

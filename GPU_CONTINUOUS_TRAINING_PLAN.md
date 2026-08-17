@@ -12,6 +12,8 @@ El despliegue web actual no debe ejecutar el preentrenamiento: su contenedor est
 
 Los precios y disponibilidad cambian. La selección no debe realizarse sin la autorización del propietario de la cuenta y un límite de gasto.
 
+Antes de abrir la consola del proveedor, seguir [`GPU_AUTHORIZATION_CHECKLIST.md`](GPU_AUTHORIZATION_CHECKLIST.md). El documento separa explícitamente la cuenta, el límite de gasto, la topología GPU, el almacenamiento, el manifiesto de datos, el preset inicial y las puertas de parada; preparar el código no constituye aprobación para provisionar recursos.
+
 ## El modelo Aethel de escala
 
 Aethel no se define como una emulación literal de un cerebro humano. Es un modelo de lenguaje experimental con mecanismos inspirados en funciones cognitivas y controles de seguridad. Mantendrá el núcleo Transformer eficiente del repositorio y escalará cada módulo de manera verificable:

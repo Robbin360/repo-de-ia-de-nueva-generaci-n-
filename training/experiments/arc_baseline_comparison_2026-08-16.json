@@ -1,0 +1,46 @@
+{
+  "protocol": "same-corpus-same-batches-same-seed",
+  "corpus": "engine/corpora/aethel_repo_corpus.txt",
+  "corpus_sha256": "86c4e6aa9db7c042ec79f339dcb96d42b0075e16b8fc2e86bf0ca57e2dc565ed",
+  "steps": 20,
+  "batch_size": 2,
+  "seq_len": 32,
+  "seed": 17,
+  "baseline": {
+    "name": "baseline",
+    "parameters": 167428,
+    "loss_first": 5.560030460357666,
+    "loss_last": 4.987039089202881,
+    "loss_mean": 5.274446415901184,
+    "router_imbalance_mean": 0.38203125,
+    "adaptive_selected_fraction_mean": 0.0,
+    "adaptive_effective_steps_total": 0,
+    "elapsed_seconds_cpu": 0.1707049619872123,
+    "tokens_processed": 1280,
+    "tokens_per_second_cpu": 7498.317477706865,
+    "peak_rss_bytes": 361168896
+  },
+  "arc": {
+    "name": "arc",
+    "parameters": 192581,
+    "loss_first": 5.50374698638916,
+    "loss_last": 5.019875526428223,
+    "loss_mean": 5.281410169601441,
+    "router_imbalance_mean": 0.478125,
+    "adaptive_selected_fraction_mean": 1.0,
+    "adaptive_effective_steps_total": 80,
+    "elapsed_seconds_cpu": 0.19011221698019654,
+    "tokens_processed": 1280,
+    "tokens_per_second_cpu": 6732.865569251313,
+    "peak_rss_bytes": 362311680
+  },
+  "delta": {
+    "parameters": 25153,
+    "loss_last": 0.0328364372253418,
+    "loss_mean": 0.006963753700256703,
+    "router_imbalance_mean": 0.09609375000000003,
+    "cpu_tokens_per_second": -765.4519084555523,
+    "peak_rss_bytes": 1142784
+  },
+  "interpretation": "Experimento de humo en CPU: mide ejecución real sobre el corpus indicado, pero no autoriza una conclusión de calidad, FLOPs, VRAM o rendimiento GPU."
+}

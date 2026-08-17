@@ -35,7 +35,7 @@ def run(args: argparse.Namespace) -> None:
     corpus_path = Path(args.corpus)
     text = corpus_path.read_text(encoding="utf-8")
     tokens = byte_tokens(text)
-    config = NextGenConfig(dim=args.dim, layers=args.layers, heads=args.heads, kv_heads=args.kv_heads, experts=args.experts, max_seq_len=args.seq_len)
+    config = NextGenConfig(dim=args.dim, layers=args.layers, heads=args.heads, kv_heads=args.kv_heads, experts=args.experts, max_seq_len=args.seq_len, adaptive_refinement_steps=args.adaptive_refinement_steps, adaptive_refinement_threshold=args.adaptive_refinement_threshold, adaptive_compute_penalty=args.adaptive_compute_penalty)
     model = AethelNextGen(config, args.memory_path).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     reference = {name: parameter.detach().clone() for name, parameter in model.named_parameters()}
@@ -92,4 +92,7 @@ if __name__ == "__main__":
     parser.add_argument("--save-every", type=int, default=100)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--device", default=None)
+    parser.add_argument("--adaptive-refinement-steps", type=int, default=0, help="Pasos máximos de refinamiento adicional para estados seleccionados; 0 conserva el baseline.")
+    parser.add_argument("--adaptive-refinement-threshold", type=float, default=0.35, help="Umbral de dificultad para seleccionar un estado a refinar.")
+    parser.add_argument("--adaptive-compute-penalty", type=float, default=0.0, help="Penalización opcional sobre la probabilidad media de refinamiento.")
     run(parser.parse_args())

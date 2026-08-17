@@ -37,6 +37,9 @@ class NextGenConfig:
     lora_alpha: float = 16.0
     lora_freeze_base: bool = True
     require_triton: bool = False
+    adaptive_refinement_steps: int = 0
+    adaptive_refinement_threshold: float = 0.35
+    adaptive_compute_penalty: float = 0.0
 
     def model_config(self) -> AethelConfig:
         return AethelConfig(vocab_size=self.vocab_size, dim=self.dim, n_layers=self.layers, n_heads=self.heads, n_kv_heads=self.kv_heads, n_experts=self.experts, active_experts=self.active_experts, max_seq_len=self.max_seq_len, router_bias_step=self.router_bias_step, router_bias_limit=self.router_bias_limit, require_triton=self.require_triton)
@@ -251,6 +254,58 @@ class WorkingMemory(nn.Module):
         return self.norm(self.update(observation, state))
 
 
+class RefinamientoAdaptativo(nn.Module):
+    """Profundidad adicional con presupuesto explícito; sólo procesa estados seleccionados.
+
+    El router es deliberadamente simple y sus conteos son telemetría, no una promesa
+    de aceleración: el resultado debe compararse en la GPU objetivo antes de adoptarse.
+    """
+
+    def __init__(self, dim: int, max_steps: int, threshold: float):
+        super().__init__()
+        if max_steps < 1:
+            raise ValueError("El refinamiento adaptativo requiere al menos un paso")
+        if not 0.0 <= threshold <= 1.0:
+            raise ValueError("El umbral adaptativo debe estar entre 0 y 1")
+        self.max_steps = max_steps
+        self.threshold = threshold
+        self.difficulty = nn.Linear(dim, 1)
+        nn.init.zeros_(self.difficulty.weight)
+        nn.init.zeros_(self.difficulty.bias)
+        self.cell = nn.GRUCell(dim, dim)
+        self.norm = nn.LayerNorm(dim)
+        self.last_metrics = {"enabled": True, "selected": 0, "batch": 0, "effective_token_steps": 0, "fraction": 0.0, "mean_difficulty": 0.0}
+
+    def forward(self, state: torch.Tensor) -> tuple[torch.Tensor, dict, torch.Tensor]:
+        difficulty = torch.sigmoid(self.difficulty(state)).squeeze(-1)
+        selected = torch.nonzero(difficulty >= self.threshold, as_tuple=False).flatten()
+        refined = state
+        if selected.numel():
+            for _ in range(self.max_steps):
+                selected_state = refined.index_select(0, selected)
+                proposal = self.norm(self.cell(selected_state, selected_state))
+                # La mezcla conserva gradiente hacia el router; la selección discreta
+                # sigue determinando el trabajo materializado y se registra aparte.
+                blend = difficulty.index_select(0, selected).unsqueeze(-1).to(proposal.dtype)
+                proposal = selected_state + blend * (proposal - selected_state)
+                refined = refined.index_copy(0, selected, proposal)
+        selected_count = int(selected.numel())
+        effective_steps = selected_count * self.max_steps
+        metrics = {
+            "enabled": True,
+            "max_steps": self.max_steps,
+            "threshold": self.threshold,
+            "selected": selected_count,
+            "batch": int(state.size(0)),
+            "effective_token_steps": effective_steps,
+            "fraction": selected_count / max(1, int(state.size(0))),
+            "mean_difficulty": float(difficulty.detach().mean().cpu()),
+        }
+        self.last_metrics = metrics
+        # Penaliza la probabilidad del router, aunque la decisión de ejecución sea discreta.
+        return refined, metrics, difficulty.mean()
+
+
 class LoRALinear(nn.Module):
     """Adaptador de bajo rango que conserva la proyección base sin modificarla."""
 
@@ -286,6 +341,7 @@ class AethelNextGen(nn.Module):
         self.memory = MemoriaEpisodica(memory_path, config.dim, config.replay_capacity)
         self.semantic_memory = MemoriaSemantica(memory_file.with_name("semantic_memory.jsonl"), config.dim, config.memory_slots)
         self.working_memory = WorkingMemory(config.dim)
+        self.adaptive_refinement = RefinamientoAdaptativo(config.dim, config.adaptive_refinement_steps, config.adaptive_refinement_threshold) if config.adaptive_refinement_steps else None
         self.memory_to_core = nn.Linear(config.dim, config.dim, bias=False)
         self.register_buffer("memory_state", torch.zeros(1, config.dim), persistent=False)
         self.lora_config: dict | None = None
@@ -333,13 +389,20 @@ class AethelNextGen(nn.Module):
             memory_hit = 1
             recalled = torch.stack(recalled_sources, dim=0).mean(dim=0).reshape(1, -1).expand(working.size(0), -1)
         global_context = self.workspace(rock, liquid, recalled)
+        if self.adaptive_refinement is not None:
+            global_context, adaptive_metrics, adaptive_probability = self.adaptive_refinement(global_context)
+        else:
+            adaptive_metrics = {"enabled": False, "max_steps": 0, "selected": 0, "batch": int(tokens.size(0)), "effective_token_steps": 0, "fraction": 0.0, "mean_difficulty": 0.0}
+            adaptive_probability = torch.zeros((), device=tokens.device)
         self.memory_state = (working + global_context).mean(dim=0, keepdim=True).detach()
         logits, aux_loss, _ = self.core(tokens, memory_state=self.memory_to_core(global_context))
         loss = None
         if targets is not None:
             loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), targets.reshape(-1)) + 0.01 * aux_loss
+            if self.config.adaptive_compute_penalty and self.adaptive_refinement is not None:
+                loss = loss + self.config.adaptive_compute_penalty * adaptive_probability
         priority, surprise = self.neuromodulation(working, loss)
-        self.last_metrics.update({"memory_hits": self.last_metrics.get("memory_hits", 0) + memory_hit, "memory_records": len(self.memory.records), "semantic_records": len(self.semantic_memory.records), "replay_records": len(self.sleep.replay), "aux_loss": float(aux_loss.detach().cpu()), "neuromodulation": float(priority.cpu()), "surprise": float(surprise.cpu()), "reasoning_trace": {"protocol": ["recuperación", "integración", "predicción"], "episodic": episodic_trace, "semantic": semantic_trace, "workspace_weights": dict(self.workspace.last_weights), "internal_chain_of_thought_exposed": False}, "pillars": {"La Roca": True, "El Líquido": True, "Ciclo de Sueño": True, "Neuromodulación": True, "Espacio de Trabajo Global": True}})
+        self.last_metrics.update({"memory_hits": self.last_metrics.get("memory_hits", 0) + memory_hit, "memory_records": len(self.memory.records), "semantic_records": len(self.semantic_memory.records), "replay_records": len(self.sleep.replay), "aux_loss": float(aux_loss.detach().cpu()), "neuromodulation": float(priority.cpu()), "surprise": float(surprise.cpu()), "adaptive_compute": adaptive_metrics, "reasoning_trace": {"protocol": ["recuperación", "integración", "refinamiento presupuestado", "predicción"], "episodic": episodic_trace, "semantic": semantic_trace, "workspace_weights": dict(self.workspace.last_weights), "internal_chain_of_thought_exposed": False}, "pillars": {"La Roca": True, "El Líquido": True, "Ciclo de Sueño": True, "Neuromodulación": True, "Espacio de Trabajo Global": True}})
         return logits, loss, dict(self.last_metrics)
 
     @torch.no_grad()

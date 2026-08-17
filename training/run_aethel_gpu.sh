@@ -4,9 +4,17 @@ set -euo pipefail
 # Variables que debe definir el operador de la instancia GPU.
 : "${AETHEL_DATA_DIR:?Defina AETHEL_DATA_DIR con el volumen persistente de datos}"
 : "${AETHEL_RUN_DIR:?Defina AETHEL_RUN_DIR con el volumen persistente de checkpoints}"
+: "${AETHEL_EVALUATION_CONFIG:?Defina AETHEL_EVALUATION_CONFIG con una evaluación aprobada}"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+
+# Bloquea antes de instalar, descargar o provisionar trabajo si faltan aprobaciones de datos/evaluación.
+python3 training/validate_training_readiness.py \
+  --manifest "$AETHEL_DATA_DIR/corpus_manifest.json" \
+  --evaluation-config "$AETHEL_EVALUATION_CONFIG" \
+  --require-approved \
+  --output "$AETHEL_RUN_DIR/training_readiness.json"
 
 python -m pip install --upgrade pip
 python -m pip install -r training/requirements.txt

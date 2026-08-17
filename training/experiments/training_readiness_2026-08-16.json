@@ -1,0 +1,12 @@
+{
+  "status": "READY_FOR_HUMAN_APPROVAL",
+  "manifest": "training/corpus_manifest.example.json",
+  "sources": 3,
+  "errors": [],
+  "warnings": [
+    "fuente common-corpus-multilingual sin revisión inmutable fijada",
+    "fuente fineweb-edu-pilot sin revisión inmutable fijada",
+    "fuente redpajama-es-pilot sin revisión inmutable fijada"
+  ],
+  "statement": "Este validador no aprueba licencias, no habilita fuentes y no inicia una descarga o una corrida."
+}

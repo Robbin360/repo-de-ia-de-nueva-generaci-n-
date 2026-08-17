@@ -35,10 +35,12 @@ describe("Aethel real runtime", () => {
 
   it("expone presupuestos calculados y límites cognitivos verificables", async () => {
     const result = await appRouter.createCaller(ctx).aethel.specification();
-    expect(result.presets.map(item => item.name)).toEqual(["pilot-100m", "research-300m", "scale-1b"]);
-    expect(result.presets.map(item => item.parametersMillions)).toEqual([97.16, 344.34, 1192.68]);
+    expect(result.presets.map(item => item.name)).toEqual(["pilot-100m", "research-300m", "scale-1b", "adaptive-research-300m"]);
+    expect(result.presets.map(item => item.parametersMillions)).toEqual([97.16, 344.34, 1192.68, 347.88]);
+    expect(result.presets.at(-1)?.adaptiveRefinementParameters).toBe(3545857);
     expect(result.memory.semantic).toContain("Prototipos vectoriales");
-    expect(result.reasoning.protocol).toEqual(["recuperación", "integración", "predicción"]);
+    expect(result.reasoning.protocol).toEqual(["recuperación", "integración", "refinamiento presupuestado", "predicción"]);
+    expect(result.adaptiveCompute).toContain("apagada por defecto");
     expect(result.technology.join(" ")).toContain("Triton + CUDA");
     expect(result.technology.join(" ")).toContain("Rust + Candle");
     expect(result.technology.join(" ")).toContain("Mojo");
@@ -54,6 +56,8 @@ describe("Aethel real runtime", () => {
     expect(result.reply).toContain("Configuración activa");
     expect(result.reply).toContain("hybrid_aethel");
     expect(result.reply).toContain("97.16 M");
+    expect(result.reply).toContain("347.88 M");
+    expect(result.reply).toContain("Cómputo adaptativo experimental");
     expect(result.reply).toContain("NOT_CONNECTED");
     expect(result.reply).toContain("Stack tecnológico del repositorio original");
     expect(result.reply).toContain("Triton + CUDA");

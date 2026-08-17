@@ -162,3 +162,21 @@
 - [x] Definir API JSONL, snapshot atómico, recuperación y protocolo de supervisión del servicio Rust; la ejecución persistente queda pendiente antes de declararlo 24/7
 - [x] Evitar que el saludo del chat muestre un marcador de parámetros mientras la ficha técnica calculada se está cargando
 - [x] Crear un preflight único de GPU que ejecute comprobaciones Triton y FSDP reales sin convertir un host sin CUDA en éxito
+
+## Ingeniería final previa a GPU y entrenamiento real
+
+- [x] Definir una variante Aethel experimental de eficiencia y razonamiento con hipótesis, coste y criterios de rechazo medibles
+- [x] Implementar módulos cognitivos o de eficiencia que puedan validarse sin CUDA, preservando compatibilidad con checkpoints
+- [x] Añadir comparativas reproducibles contra la configuración base para pérdida, estabilidad de router, memoria y coste de cómputo
+- [x] Revisar el manifiesto de corpus, la receta de entrenamiento y las puertas de evaluación antes de usar una cuenta GPU
+- [x] Preparar un checklist de autorización explícita que separe acceso de cuenta, selección de GPU, límite de gasto e inicio de corrida
+- [x] Añadir una validación automática de preparación que rechace manifiestos no aprobados o rutas de evaluación incompletas antes de lanzar GPU
+- [x] Integrar el validador de preparación en el launcher GPU para abortar antes de cualquier descarga o entrenamiento si falla
+- [x] Exigir revisiones inmutables aprobadas y entradas de evaluación configuradas antes de permitir un lanzamiento GPU
+- [x] Comprobar accesibilidad real de holdout, tokenizador y referencias de benchmark en el modo de lanzamiento aprobado
+- [x] Probar el rechazo de rutas de evaluación inexistentes y el bloqueo del launcher antes de instalar o descargar
+- [x] Implementar una variante de refinamiento adaptativo con pasos máximos, umbral de dificultad y telemetría de cómputo efectiva
+- [x] Comparar la variante adaptativa contra el baseline con una prueba reproducible de pérdida y coste de refinamiento
+- [x] Exponer la variante ARC en la ficha técnica del chat con su presupuesto calculado, telemetría y límites experimentales
+- [x] Añadir una prueba reproducible de carga y reanudación de checkpoints para baseline y ARC, incluyendo activar/desactivar ARC
+- [x] Extender la comparación ARC-baseline con medición real de RAM/VRAM según el entorno y persistirla en el reporte experimental
