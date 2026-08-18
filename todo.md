@@ -226,3 +226,5 @@
 - [ ] Corregir el selector V9: debe priorizar explícitamente el bundle con `project-gutenberg-en` sobre copias que sólo contienen OLC
 - [ ] Regenerar y publicar una nueva versión del Dataset con el selector corregido
 - [ ] Verificar en Kaggle que se selecciona la versión nueva antes de ejecutar el launcher
+- [ ] Corregir la celda del cuaderno que aún selecciona `pKXqovDfRmpcogEs` en vez del bundle Gutenberg
+- [ ] Repetir la preparación sin interrumpirla y confirmar la puerta real de conteos bilingües
