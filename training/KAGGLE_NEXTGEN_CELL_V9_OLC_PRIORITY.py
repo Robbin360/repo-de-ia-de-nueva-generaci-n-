@@ -40,6 +40,7 @@ for path in files:
             ),
             "trainer": any(name.endswith("engine/train_aethel_gpu.py") for name in names),
             "olc_source": b"olc-pd-books-en" in manifest_bytes,
+            "gutenberg_source": b"project-gutenberg-en" in manifest_bytes,
             "source_count": len(names),
             "size": path.stat().st_size,
         }
@@ -55,10 +56,12 @@ if not candidates:
         f"Archivos montados: {[str(path) for path in files]}"
     )
 
-# Si Kaggle montó copias duplicadas, priorizamos el bundle cuyo manifiesto
-# contiene la fuente OLC pd_books. Después usamos completitud, tamaño y hash.
+# Si Kaggle montó copias duplicadas, priorizamos el bundle que contiene
+# Project Gutenberg inglés y, después, OLC pd_books. Luego usamos completitud,
+# tamaño y hash. Así una copia anterior con OLC no puede ganar a la versión nueva.
 candidates.sort(
     key=lambda item: (
+        item[1]["gutenberg_source"],
         item[1]["olc_source"],
         item[1]["source_count"],
         item[1]["size"],
@@ -71,8 +74,9 @@ bundle, details, digest = candidates[0]
 print(
     "Bundles válidos detectados: "
     f"{len(candidates)}; seleccionado: {bundle} "
-    f"(olc_pd_books={details['olc_source']}, "
-    f"archivos internos={details['source_count']}, "
+            f"(project_gutenberg={details['gutenberg_source']}, "
+        f"olc_pd_books={details['olc_source']}, "
+        f"archivos internos={details['source_count']}, "
     f"bytes={details['size']}, sha256={digest[:16]}...)"
 )
 
@@ -80,7 +84,8 @@ if len(candidates) > 1:
     print("Copias descartadas:")
     for discarded, discarded_details, discarded_digest in candidates[1:]:
         print(
-            f"- {discarded} (olc_pd_books={discarded_details['olc_source']}, "
+            f"- {discarded} (project_gutenberg={discarded_details['gutenberg_source']}, "
+            f"olc_pd_books={discarded_details['olc_source']}, "
             f"archivos internos={discarded_details['source_count']}, "
             f"bytes={discarded_details['size']}, sha256={discarded_digest[:16]}...)"
         )
