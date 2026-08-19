@@ -17,7 +17,7 @@ Cada interacción, documento autorizado o resultado de evaluación se representa
 | Incertidumbre calibrada | `U(x)` | Entropía predictiva, desacuerdo entre pasadas de evaluación o baja confianza calibrada. | El modelo no sabe con suficiente seguridad. |
 | Novedad | `N(x)` | Distancia a memoria semántica aprobada y baja frecuencia de cobertura. | El tema no está bien representado en lo conocido. |
 | Contradicción | `C(x)` | Desacuerdo entre afirmaciones con procedencia, memoria y fuentes permitidas. | Existe conflicto que requiere verificación, no una corrección instantánea. |
-| Progreso esperado | `P(x)` | Tendencia reciente de reducción de error para tareas comparables; se estima con ventanas de evaluación. | Es probable que invertir cómputo produzca aprendizaje. |
+| Progreso esperado | `P(x)` | Tendencia reciente de reducción de incertidumbre para un contexto local comparable; las ventanas de evaluación completas siguen pendientes. | Es probable que invertir cómputo produzca aprendizaje. |
 | Riesgo | `R(x)` | Sensibilidad de datos, falta de licencia/procedencia, capacidad requerida, dominio no permitido o potencial daño. | Debe bloquearse o elevarse para revisión. |
 | Coste | `K(x)` | Tokens, latencia, VRAM, energía si se mide y uso restante de presupuesto. | Evita que la curiosidad consuma recursos sin valor demostrable. |
 
@@ -73,6 +73,12 @@ flowchart LR
 ```
 
 La curiosidad lee telemetría y memoria aprobada, pero no escribe en La Roca. El Líquido almacena el motivo de la curiosidad, evidencia, nivel de confianza, permiso, TTL, hash y acción propuesta. Sueño consume sólo eventos curados y `train`; el `holdout` continúa bloqueado.
+
+### Estado implementado de `P(x)`
+
+La implementación actual conserva, por contexto local derivado de la ventana de tokens, la última incertidumbre observada y calcula `P(x) = max(0, U_anterior − U_actual)`. Un contexto nuevo produce progreso cero; un incremento de incertidumbre también produce cero. La capacidad de contextos está acotada por la misma cuota de evaluaciones del controlador y no persiste texto ni habilita datos para Sueño.
+
+Esta señal es **telemetría local**, no una prueba de aprendizaje general ni una métrica de evaluación retenida. La tendencia por tarea, idioma y dominio sólo podrá sustituirla después de mediciones reales sobre protocolos separados.
 
 ## Objetivos que el controlador puede optimizar
 

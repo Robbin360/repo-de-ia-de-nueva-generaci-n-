@@ -17,9 +17,12 @@ def main() -> None:
     assert blocked.action == "blocked" and blocked.blocked and blocked.to_dict()["external_action_enabled"] is False
     noisy = controller.assess(CuriositySignals(uncertainty=0.95, novelty=0.95, contradiction=0.0, expected_progress=0.0, risk=0.1, cost=0.1))
     assert noisy.action != "propose_replay" and "incertidumbre_sin_progreso_demostrado" in noisy.reasons
+    assert controller.observe_progress("contexto-matematicas", 0.90) == 0.0
+    assert controller.observe_progress("contexto-matematicas", 0.55) == 0.35
+    assert controller.observe_progress("contexto-matematicas", 0.80) == 0.0
     useful = controller.assess(CuriositySignals(uncertainty=0.9, novelty=1.0, contradiction=0.8, expected_progress=1.0, risk=0.0, cost=0.0))
     assert useful.action == "propose_replay" and useful.requires_approval
-    assert controller.manifest()["external_action_enabled"] is False
+    assert controller.manifest()["external_action_enabled"] is False and controller.manifest()["longitudinal_progress_enabled"] is True
     with tempfile.TemporaryDirectory(prefix="aethel-memory-") as directory:
         model = AethelNextGen(NextGenConfig(vocab_size=64, dim=32, layers=1, heads=4, kv_heads=1, experts=2, active_experts=1, max_seq_len=16, memory_slots=4, replay_capacity=8), Path(directory) / "episodic.jsonl")
         tokens = torch.tensor([[1, 2, 3, 4, 5, 6]], dtype=torch.long)
@@ -49,6 +52,8 @@ def main() -> None:
         assert metrics["curiosity"]["action"] != "propose_replay"
         assert metrics["curiosity"]["external_action_enabled"] is False
         assert manifest["curiosity"]["external_action_enabled"] is False
+        assert manifest["curiosity"]["longitudinal_progress_enabled"] is True
+        assert manifest["curiosity"]["progress_contexts"] >= 1
         print("memory_reasoning_trace OK")
 
 

@@ -206,11 +206,29 @@ class CuriosityController:
         self.min_progress_for_replay = min_progress_for_replay
         self.assessment_capacity = assessment_capacity
         self.assessments: list[CuriosityDecision] = []
+        self.uncertainty_by_context: dict[str, float] = {}
 
     def _append(self, decision: CuriosityDecision) -> CuriosityDecision:
         self.assessments.append(decision)
         self.assessments = self.assessments[-self.assessment_capacity:]
         return decision
+
+    def observe_progress(self, context_key: str, uncertainty: float) -> float:
+        """Mide reducción local de incertidumbre para un contexto no textual.
+
+        El valor es una señal de telemetría en ``[0, 1]``: cero para un
+        contexto nuevo o cuando la incertidumbre aumenta. No actualiza pesos,
+        no persiste datos de usuario y no habilita admisión a Sueño.
+        """
+        key = str(context_key).strip()[:128]
+        if not key:
+            raise ValueError("El contexto de progreso no puede estar vacío")
+        current = self._bounded(uncertainty, "uncertainty")
+        previous = self.uncertainty_by_context.get(key)
+        if previous is None and len(self.uncertainty_by_context) >= self.assessment_capacity:
+            self.uncertainty_by_context.pop(next(iter(self.uncertainty_by_context)))
+        self.uncertainty_by_context[key] = current
+        return 0.0 if previous is None else max(0.0, min(1.0, previous - current))
 
     @staticmethod
     def _bounded(value: float, name: str) -> float:
@@ -272,6 +290,8 @@ class CuriosityController:
         return {
             "assessments": len(self.assessments),
             "assessment_capacity": self.assessment_capacity,
+            "progress_contexts": len(self.uncertainty_by_context),
+            "longitudinal_progress_enabled": True,
             "risk_block_threshold": self.risk_block_threshold,
             "actions": {action: sum(item.action == action for item in self.assessments) for action in ("blocked", "observe_only", "retrieve_local", "ask_clarification", "propose_replay")},
             "external_action_enabled": False,
@@ -585,9 +605,14 @@ class AethelNextGen(nn.Module):
         novelty = 0.50 if semantic_similarity is None else max(0.0, min(1.0, 1.0 - (float(semantic_similarity) + 1.0) / 2.0))
         curiosity = None
         if self.curiosity is not None:
-            # El núcleo aún no estima progreso longitudinal ni contradicción factual;
-            # declara esos valores como cero en vez de inventarlos.
-            curiosity = self.curiosity.assess(CuriositySignals(uncertainty=float(torch.sigmoid(surprise.detach()).cpu()), novelty=novelty, contradiction=0.0, expected_progress=0.0, risk=0.0, cost=0.0, permitted=True)).to_dict()
+            uncertainty = float(torch.sigmoid(surprise.detach()).cpu())
+            token_head = tokens.detach().to(dtype=torch.int64).flatten()[:32]
+            positions = torch.arange(1, token_head.numel() + 1, device=tokens.device, dtype=torch.int64)
+            context_key = f"token_context:{int((token_head * positions).sum().cpu())}:{token_head.numel()}"
+            progress = self.curiosity.observe_progress(context_key, uncertainty)
+            # La contradicción factual sigue en cero hasta incorporar una fuente
+            # verificable; el progreso sólo captura reducción de incertidumbre local.
+            curiosity = self.curiosity.assess(CuriositySignals(uncertainty=uncertainty, novelty=novelty, contradiction=0.0, expected_progress=progress, risk=0.0, cost=0.0, permitted=True)).to_dict()
         self.last_metrics.update({"memory_hits": self.last_metrics.get("memory_hits", 0) + memory_hit, "memory_records": len(self.memory.records), "semantic_records": len(self.semantic_memory.records), "replay_records": len(self.sleep.replay), "aux_loss": float(aux_loss.detach().cpu()), "neuromodulation": float(priority.cpu()), "surprise": float(surprise.cpu()), "curiosity": curiosity, "adaptive_compute": adaptive_metrics, "reasoning_trace": {"protocol": ["recuperación", "integración", "refinamiento presupuestado", "predicción"], "episodic": episodic_trace, "semantic": semantic_trace, "workspace_weights": dict(self.workspace.last_weights), "internal_chain_of_thought_exposed": False}, "pillars": {"La Roca": True, "El Líquido": True, "Ciclo de Sueño": True, "Neuromodulación": True, "Curiosidad funcional": self.curiosity is not None, "Espacio de Trabajo Global": True}})
         return logits, loss, dict(self.last_metrics)
 
