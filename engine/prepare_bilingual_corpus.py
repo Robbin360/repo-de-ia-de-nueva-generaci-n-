@@ -10,8 +10,10 @@ import argparse
 import bz2
 import gzip
 import hashlib
+import http.client
 import json
 import re
+import socket
 import time
 import unicodedata
 import urllib.error
@@ -60,11 +62,24 @@ def hf_rows(source: dict) -> Iterator[dict]:
 
 
 RETRYABLE_HTTP_CODES = frozenset({429, 500, 502, 503, 504})
+RETRYABLE_TRANSPORT_ERRORS = (
+    http.client.IncompleteRead,
+    urllib.error.URLError,
+    TimeoutError,
+    socket.timeout,
+    UnicodeDecodeError,
+    json.JSONDecodeError,
+)
 
 
-def retry_delay(error: urllib.error.HTTPError, attempt: int, source: dict) -> float:
+class SourceUnavailableError(RuntimeError):
+    """Una fuente remota no pudo leerse después de sus reintentos permitidos."""
+
+
+def retry_delay(error: Exception, attempt: int, source: dict) -> float:
     """Calcula un backoff determinista y respeta Retry-After cuando es válido."""
-    retry_after = error.headers.get("Retry-After") if error.headers else None
+    headers = getattr(error, "headers", None)
+    retry_after = headers.get("Retry-After") if headers else None
     if retry_after:
         try:
             return max(0.0, min(float(retry_after), float(source.get("max_retry_delay_seconds", 300))))
@@ -94,6 +109,13 @@ def atomic_write_json(path: Path, payload: dict) -> None:
     temporary = path.with_suffix(path.suffix + ".part")
     temporary.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     temporary.replace(path)
+
+
+def source_retry_error(source: dict, offset: int | None, error: Exception) -> SourceUnavailableError:
+    location = f" en offset {offset}" if offset is not None else ""
+    return SourceUnavailableError(
+        f"Fuente no disponible tras reintentos: {source['id']}{location} ({type(error).__name__}: {error})"
+    )
 
 
 def hf_rows_api(source: dict, cache_dir: Path | None = None) -> Iterator[dict]:
@@ -128,12 +150,21 @@ def hf_rows_api(source: dict, cache_dir: Path | None = None) -> Iterator[dict]:
                     break
                 except urllib.error.HTTPError as error:
                     if error.code not in RETRYABLE_HTTP_CODES or attempt + 1 >= int(source.get("max_retries", 8)):
-                        raise
+                        raise source_retry_error(source, offset, error) from error
                     delay = retry_delay(error, attempt, source)
                     print(f"Reintento de {source['id']} tras HTTP {error.code}: {delay:.1f}s", flush=True)
                     time.sleep(delay)
+                except RETRYABLE_TRANSPORT_ERRORS as error:
+                    if attempt + 1 >= int(source.get("max_retries", 8)):
+                        raise source_retry_error(source, offset, error) from error
+                    delay = retry_delay(error, attempt, source)
+                    print(
+                        f"Reintento de {source['id']} tras {type(error).__name__}: {delay:.1f}s",
+                        flush=True,
+                    )
+                    time.sleep(delay)
             else:
-                raise RuntimeError(f"Agotados los reintentos para {source['id']} en offset {offset}")
+                raise SourceUnavailableError(f"Fuente no disponible tras reintentos: {source['id']} en offset {offset}")
         rows = payload.get("rows", [])
         if not rows:
             return
@@ -208,11 +239,20 @@ def download_resumable(source: dict, cache_dir: Path) -> Path:
                 return destination
         except urllib.error.HTTPError as error:
             if error.code not in RETRYABLE_HTTP_CODES or attempt + 1 >= int(source.get("max_retries", 8)):
-                raise
+                raise source_retry_error(source, None, error) from error
             delay = retry_delay(error, attempt, source)
             print(f"Reintento de descarga {source['id']} tras HTTP {error.code}: {delay:.1f}s", flush=True)
             time.sleep(delay)
-    raise RuntimeError(f"Agotados los reintentos de descarga para {source['id']}")
+        except RETRYABLE_TRANSPORT_ERRORS as error:
+            if attempt + 1 >= int(source.get("max_retries", 8)):
+                raise source_retry_error(source, None, error) from error
+            delay = retry_delay(error, attempt, source)
+            print(
+                f"Reintento de descarga {source['id']} tras {type(error).__name__}: {delay:.1f}s",
+                flush=True,
+            )
+            time.sleep(delay)
+    raise SourceUnavailableError(f"Fuente no disponible tras reintentos de descarga: {source['id']}")
 
 
 def dictionary_rows(source: dict, cache_dir: Path | None = None) -> Iterator[dict]:
@@ -362,6 +402,13 @@ def run(args: argparse.Namespace) -> None:
                     row = next(stream_for(source))
                 except StopIteration:
                     stats["exhausted"] += 1
+                    continue
+                except SourceUnavailableError as error:
+                    if source.get("required", True):
+                        raise
+                    stats["unavailable"] += 1
+                    streams.pop(source["id"], None)
+                    print(f"Fuente auxiliar omitida: {error}", flush=True)
                     continue
                 next_active.append(source)
                 text = normalize_text(row.get(source.get("text_column", "text")), bool(filters.get("remove_simple_pii", True)))

@@ -31,3 +31,10 @@
 
 - La consola de la sesión recuperada mostró reintentos reales de `olc-pd-books-en` y `project-gutenberg-en` después de HTTP 502, ambos con espera inicial de 4,0 s.
 - En el siguiente minuto de observación no apareció ni un conteo final ni una excepción terminal; tampoco se ejecutó ninguna acción de interrupción, reinicio, guardado o nueva ejecución.
+
+## Estado previo a la actualización con respaldo Wikimedia
+
+- El Dataset privado `aethel-nextgen-source` muestra **Version 7** con tres archivos: `FtHvAkAfWJNYrbtR`, `oxvQlQKMIBZuWdXS` y `pKXqovDfRmpcogEs`.
+- El control **New Version** está disponible. La actualización aprobada publicará el bundle local SHA-256 `1c6a9a2346aded7bf51b1d55248c5027a0ebbc87438ed5adf299822b6f692dd1`, que declara el respaldo `wikimedia-enwiki-multistream-20260805-p1p41242`.
+- El control **New Version** se implementa como botón de interfaz, no como enlace navegable; la actualización debe iniciarse mediante el formulario visual de Kaggle.
+- Con autorización explícita del usuario, se añadió el bundle `iEGzJZQhnXuBkxNU.gz` de 79,31 kB (SHA-256 local `1c6a9a2346aded7bf51b1d55248c5027a0ebbc87438ed5adf299822b6f692dd1`) y Kaggle inició la creación de la **Version 8**. La interfaz informó que el Dataset está en procesamiento y estimó unos 10 segundos.

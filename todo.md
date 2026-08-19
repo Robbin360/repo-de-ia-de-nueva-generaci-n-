@@ -224,8 +224,10 @@
 - [ ] Confirmar en Kaggle que la entrada montada contiene el bundle con `project-gutenberg-en` y ejecutar Save Version → Save & Run All
 - [x] Subir el bundle validado con Project Gutenberg como nueva versión del Dataset privado de Kaggle y verificar su contenido
 - [x] Corregir el selector V9: debe priorizar explícitamente el bundle con `project-gutenberg-en` sobre copias que sólo contienen OLC
-- [ ] Regenerar y publicar una nueva versión del Dataset con el selector corregido
+- [x] Regenerar y publicar una nueva versión del Dataset con el selector corregido
 - [x] Verificar en Kaggle que se selecciona la versión nueva antes de ejecutar el launcher
 - [x] Corregir la celda del cuaderno que aún selecciona `pKXqovDfRmpcogEs` en vez del bundle Gutenberg
 - [ ] Repetir la preparación sin interrumpirla y confirmar la puerta real de conteos bilingües
 - [x] Añadir y validar una ruta inglesa de respaldo con procedencia verificable ante HTTP 502 simultáneos de OLC y Project Gutenberg
+- [ ] Pegar la celda V11 en Kaggle, confirmar que selecciona el bundle con respaldo Wikimedia y ejecutar la puerta bilingüe
+- [x] Tratar `IncompleteRead` de Hugging Face como fallo reintentable y aislar fuentes auxiliares para que no aborten la preparación

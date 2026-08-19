@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import bz2
 import gzip
+import http.client
 import importlib.util
 import json
 import tempfile
@@ -92,6 +93,28 @@ class PrepareBilingualCorpusTest(unittest.TestCase):
                 self.assertEqual(list(MODULE.hf_rows_api(source, cache_dir)), rows)
                 second_open.assert_not_called()
 
+    def test_hf_rows_api_retries_incomplete_read(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source = {
+                "id": "truncated-api",
+                "kind": "hf_rows_api",
+                "dataset": "test/dataset",
+                "config": "default",
+                "revision": "a" * 40,
+                "batch_size": 2,
+                "max_retries": 2,
+                "retry_backoff_seconds": 0,
+                "max_retry_delay_seconds": 1,
+            }
+            response = {"rows": [{"row": {"text": "Recovered reference document."}}]}
+            with patch.object(
+                MODULE.urllib.request,
+                "urlopen",
+                side_effect=[IncompleteReadResponse(), DummyResponse(response)],
+            ) as open_mock, patch.object(MODULE.time, "sleep"):
+                self.assertEqual(list(MODULE.hf_rows_api(source, Path(temporary))), [{"text": "Recovered reference document."}])
+                self.assertEqual(open_mock.call_count, 2)
+
     def test_download_resumable_continues_partial_with_range(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             cache_dir = Path(temporary)
@@ -166,6 +189,40 @@ class PrepareBilingualCorpusTest(unittest.TestCase):
                 MODULE.run(argparse.Namespace(manifest=str(manifest_path), output=str(root / "output"), shard_documents=10, seed=17, allow_network=True, approved_data_plan=False))
             self.assertEqual(calls, ["primary"])
 
+    def test_unavailable_optional_source_does_not_abort_available_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            manifest = {
+                "approval_required": False,
+                "purpose": "test",
+                "minimum_documents_by_language": {"en": 1},
+                "sources": [
+                    {"id": "primary-empty", "kind": "hf_text", "language": "en", "document_limit": 1, "minimum_documents": 0, "license": "test", "provenance_url": "https://example.invalid/primary", "revision": "a" * 40, "enabled": True},
+                    {"id": "optional-broken", "kind": "hf_text", "language": "en", "document_limit": 1, "required": False, "license": "test", "provenance_url": "https://example.invalid/broken", "revision": "b" * 40, "enabled": True},
+                    {"id": "optional-fallback", "kind": "hf_text", "language": "en", "document_limit": 1, "required": False, "license": "test", "provenance_url": "https://example.invalid/fallback", "revision": "c" * 40, "enabled": True},
+                ],
+                "filters": {"min_characters": 10, "max_characters": 1000, "deduplicate_exact": True, "validation_percent": 0.0},
+            }
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            def unavailable_rows():
+                raise MODULE.SourceUnavailableError("auxiliary source unavailable")
+                yield {"text": "unreachable"}
+
+            def fake_rows(source: dict, cache_dir=None):
+                if source["id"] == "primary-empty":
+                    return iter(())
+                if source["id"] == "optional-broken":
+                    return unavailable_rows()
+                return iter([{"text": "Fallback reference document."}])
+
+            with patch.object(MODULE, "source_rows", side_effect=fake_rows):
+                MODULE.run(argparse.Namespace(manifest=str(manifest_path), output=str(root / "output"), shard_documents=10, seed=17, allow_network=True, approved_data_plan=False))
+            report = json.loads((root / "output" / "prepared_manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(report["source_counts"]["optional-broken"]["unavailable"], 1)
+            self.assertEqual(report["source_counts"]["optional-fallback"]["accepted"], 1)
+
 
 class DummyResponse:
     def __init__(self, payload: object, headers: dict[str, str] | None = None) -> None:
@@ -186,6 +243,14 @@ class DummyResponse:
         if isinstance(self.payload, bytes):
             return self.payload
         return json.dumps(self.payload).encode("utf-8")
+
+
+class IncompleteReadResponse(DummyResponse):
+    def __init__(self) -> None:
+        super().__init__(b"")
+
+    def read(self, size: int = -1) -> bytes:
+        raise http.client.IncompleteRead(b"partial", 10)
 
 
 if __name__ == "__main__":
