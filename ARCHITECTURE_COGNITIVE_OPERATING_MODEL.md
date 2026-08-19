@@ -15,7 +15,8 @@ La dirección correcta para Aethel no es declarar que un Transformer sea un cere
 | Pilar | Estado implementado | Evidencia en el núcleo | Límite actual que debe mantenerse explícito |
 |---|---|---|---|
 | **La Roca** | Ruta lineal estable con ancla congelada. | `LaRoca` combina `stable_projection` con `anchor`, cuyo gradiente está desactivado. | La proyección sigue siendo entrenable; aún no existe un manifiesto de versión inmutable ni una política de promoción al conocimiento estable. |
-| **El Líquido** | Traza hebbiana acotada y versionada; no muta pesos por observación. | `observe()` normaliza el estado, aplica decaimiento y escribe `liquid_versions.jsonl`. | La traza no es persistente en el `state_dict` y no hay caducidad, aislamiento por usuario ni revisión de efectos adversos. |
+| **El Líquido** | Traza hebbiana acotada y versionada; no muta pesos por observación. | `observe()` normaliza el estado, aplica decaimiento y escribe `liquid_versions.jsonl`. | La traza no es persistente en el `state_dict` y no hay aislamiento por usuario, revocación ni revisión de efectos adversos. |
+| **Curiosidad funcional** | Controlador que puntúa incertidumbre, novedad, contradicción, progreso esperado, riesgo y coste. | `CuriosityController` emite sólo `observe_only`, `retrieve_local`, `ask_clarification`, `propose_replay` o `blocked`; nunca habilita acciones externas. | El núcleo aún no estima progreso longitudinal ni contradicción factual: declara ambas señales como cero y no debe presentarlas como conocimiento. |
 | **Ciclo de Sueño** | Buffer de replay con prioridad y diversidad aproximada. | `CicloDeSueno.consolidate()` conserva tokens y estados; `sample_pairs()` genera pares autoregresivos reales. | No hay job de consolidación, actualización de adaptadores, validación de regresión ni promoción automática; el buffer es volátil. |
 | **Neuromodulación** | Señal de prioridad basada en sorpresa/pérdida. | `Neuromodulacion` emite prioridad limitada a `[0,1]`. | No está calibrada contra error predictivo ni recompensa externa; no debe interpretarse como motivación o voluntad. |
 | **Espacio de Trabajo Global** | Fusión con compuerta de ruta sólida, líquida y memoria recuperada. | `EspacioTrabajoGlobal` registra pesos de las tres fuentes. | Aún no existe competición explícita entre especialistas, presupuesto de ancho de banda ni mecanismo de difusión a módulos separados. |
@@ -53,6 +54,8 @@ Una promoción requiere un `rock_manifest.json` con hash del checkpoint, hash de
 
 Cada evento líquido debe llevar `event_id`, `content_hash`, `source_scope`, `salience`, `ttl`, `privacy_class`, `dedup_key`, `creation_version` y `promotion_state`. El decaimiento por sí solo no basta: una memoria debe expirar, ser revocada o quedar en cuarentena si no tiene procedencia o si causa regresión. La operación `observe` sólo puede **proponer**; no puede escribir pesos.
 
+La implementación actual ya persiste propuestas de curiosidad en `curiosity_events.jsonl` con origen `local_curiosity_telemetry`, versión líquida, TTL, señales, prioridad y razones. Todos esos eventos se escriben con `eligible_for_sleep: false` y `external_action_enabled: false`; por diseño son una evidencia líquida para curación posterior, no una entrada automática al replay ni una orden de actuar.
+
 ### 3. Ciclo de Sueño: consolidación offline, selectiva y reversible
 
 El Ciclo de Sueño no debe ser una tarea misteriosa que “mejora por sí sola”. Es un proceso batch reproducible con cinco etapas: primero valida y desduplica episodios; después construye replay estratificado por idioma, dominio, recencia y saliencia; luego entrena un adaptador temporal; ejecuta evaluación de regresión; y, sólo si pasa, publica un candidato para revisión.
@@ -65,11 +68,11 @@ El espacio de trabajo actual mezcla tres fuentes con una compuerta. La siguiente
 
 La salida del bus se redistribuye al decodificador y a módulos de verificación, mientras que la traza externa muestra fuentes seleccionadas y operaciones realizadas, no una cadena de pensamiento privada. La idea de un canal de capacidad limitada y competición entre especialistas está alineada con los resultados de coordinación modular de Goyal y colaboradores [2], pero Aethel debe demostrar mediante ablación que el bus mejora coste o calidad frente a la fusión actual.
 
-### 5. Neuromodulación: arbitraje de recursos, no deseo ni agencia
+### 5. Neuromodulación y curiosidad funcional: arbitraje de recursos, no deseo ni agencia
 
 La neuromodulación se redefine como un conjunto de señales instrumentales: sorpresa calibrada, incertidumbre, novedad, conflicto entre memorias, riesgo de seguridad y coste estimado. Esas señales determinan si se recupera más evidencia, se abre una ranura de workspace, se ejecuta refinamiento adaptativo o se registra una experiencia para posible consolidación.
 
-La señal debe permanecer auditada y limitada. No debe controlar objetivos de alto nivel por sí misma ni iniciar tareas externas. Las acciones de alto impacto permanecen detrás de políticas explícitas y confirmación humana.
+La señal debe permanecer auditada y limitada. No debe controlar objetivos de alto nivel por sí misma ni iniciar tareas externas. Las acciones de alto impacto permanecen detrás de políticas explícitas y confirmación humana. El controlador de curiosidad reduce la prioridad de novedad o incertidumbre que no muestran progreso esperado; esto evita tratar ruido impredecible como una oportunidad de aprendizaje. Su resultado más fuerte, `propose_replay`, sigue necesitando curación y aprobación antes de llegar al Ciclo de Sueño.
 
 ## Ciclo operativo propuesto
 
