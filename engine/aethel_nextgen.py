@@ -40,6 +40,8 @@ class NextGenConfig:
     adaptive_refinement_steps: int = 0
     adaptive_refinement_threshold: float = 0.35
     adaptive_compute_penalty: float = 0.0
+    curiosity_enabled: bool = True
+    curiosity_risk_block_threshold: float = 0.70
 
     def model_config(self) -> AethelConfig:
         return AethelConfig(vocab_size=self.vocab_size, dim=self.dim, n_layers=self.layers, n_heads=self.heads, n_kv_heads=self.kv_heads, n_experts=self.experts, active_experts=self.active_experts, max_seq_len=self.max_seq_len, router_bias_step=self.router_bias_step, router_bias_limit=self.router_bias_limit, require_triton=self.require_triton)
@@ -98,6 +100,147 @@ class Neuromodulacion(nn.Module):
         surprise = loss.detach().float() if loss is not None else intrinsic.detach()
         priority = torch.clamp(0.5 * intrinsic.detach() + 0.5 * torch.sigmoid(surprise), 0.0, 1.0)
         return priority, surprise
+
+
+@dataclass(frozen=True)
+class CuriositySignals:
+    """Señales ya medidas para priorizar aprendizaje; no representan emociones."""
+
+    uncertainty: float
+    novelty: float
+    contradiction: float
+    expected_progress: float
+    risk: float = 0.0
+    cost: float = 0.0
+    permitted: bool = True
+
+
+@dataclass(frozen=True)
+class CuriosityDecision:
+    """Resultado serializable y no ejecutable del controlador de curiosidad."""
+
+    priority: float
+    action: str
+    blocked: bool
+    requires_approval: bool
+    reasons: tuple[str, ...]
+    signals: CuriositySignals
+
+    def to_dict(self) -> dict:
+        return {
+            "priority": self.priority,
+            "action": self.action,
+            "blocked": self.blocked,
+            "requires_approval": self.requires_approval,
+            "reasons": list(self.reasons),
+            "signals": {
+                "uncertainty": self.signals.uncertainty,
+                "novelty": self.signals.novelty,
+                "contradiction": self.signals.contradiction,
+                "expected_progress": self.signals.expected_progress,
+                "risk": self.signals.risk,
+                "cost": self.signals.cost,
+                "permitted": self.signals.permitted,
+            },
+            "external_action_enabled": False,
+        }
+
+
+class CuriosityController:
+    """Convierte señales en una propuesta local, nunca en una acción externa.
+
+    La prioridad combina incertidumbre, novedad, contradicción y progreso esperado.
+    El término de progreso evita que la novedad o el error puro conviertan ruido
+    impredecible en una solicitud de entrenamiento. La decisión más fuerte que este
+    objeto puede emitir es ``propose_replay``; su admisión al Sueño requiere una
+    política independiente y aprobación explícita.
+    """
+
+    def __init__(
+        self,
+        risk_block_threshold: float = 0.70,
+        retrieve_threshold: float = 0.25,
+        clarify_threshold: float = 0.45,
+        replay_threshold: float = 0.60,
+        min_progress_for_replay: float = 0.20,
+    ):
+        thresholds = (risk_block_threshold, retrieve_threshold, clarify_threshold, replay_threshold, min_progress_for_replay)
+        if any(not 0.0 <= value <= 1.0 for value in thresholds):
+            raise ValueError("Los umbrales de curiosidad deben estar entre 0 y 1")
+        if not retrieve_threshold <= clarify_threshold <= replay_threshold:
+            raise ValueError("Los umbrales de curiosidad deben ser crecientes")
+        self.risk_block_threshold = risk_block_threshold
+        self.retrieve_threshold = retrieve_threshold
+        self.clarify_threshold = clarify_threshold
+        self.replay_threshold = replay_threshold
+        self.min_progress_for_replay = min_progress_for_replay
+        self.assessments: list[CuriosityDecision] = []
+
+    @staticmethod
+    def _bounded(value: float, name: str) -> float:
+        numeric = float(value)
+        if not torch.isfinite(torch.tensor(numeric)):
+            raise ValueError(f"La señal de curiosidad {name} debe ser finita")
+        return max(0.0, min(1.0, numeric))
+
+    def assess(self, signals: CuriositySignals) -> CuriosityDecision:
+        normalized = CuriositySignals(
+            uncertainty=self._bounded(signals.uncertainty, "uncertainty"),
+            novelty=self._bounded(signals.novelty, "novelty"),
+            contradiction=self._bounded(signals.contradiction, "contradiction"),
+            expected_progress=self._bounded(signals.expected_progress, "expected_progress"),
+            risk=self._bounded(signals.risk, "risk"),
+            cost=self._bounded(signals.cost, "cost"),
+            permitted=bool(signals.permitted),
+        )
+        reasons: list[str] = []
+        blocked = not normalized.permitted or normalized.risk >= self.risk_block_threshold
+        if not normalized.permitted:
+            reasons.append("sin_permiso")
+        if normalized.risk >= self.risk_block_threshold:
+            reasons.append("riesgo_alto")
+        if blocked:
+            decision = CuriosityDecision(0.0, "blocked", True, True, tuple(reasons), normalized)
+            self.assessments.append(decision)
+            return decision
+
+        raw_priority = (
+            0.20 * normalized.uncertainty
+            + 0.20 * normalized.novelty
+            + 0.20 * normalized.contradiction
+            + 0.40 * normalized.expected_progress
+            - 0.50 * normalized.risk
+            - 0.10 * normalized.cost
+        )
+        # Mantiene alguna capacidad de investigar, pero reduce la atracción de ruido
+        # cuando no hay evidencia de que el error sea aprendible.
+        learnability = 0.25 + 0.75 * normalized.expected_progress
+        priority = max(0.0, min(1.0, raw_priority * learnability))
+        if normalized.expected_progress < self.min_progress_for_replay and normalized.uncertainty >= 0.60:
+            reasons.append("incertidumbre_sin_progreso_demostrado")
+        if priority >= self.replay_threshold and normalized.expected_progress >= self.min_progress_for_replay:
+            action = "propose_replay"
+            reasons.append("candidato_replay_requiere_revision")
+        elif priority >= self.clarify_threshold:
+            action = "ask_clarification"
+            reasons.append("reducir_incertidumbre_sin_entrenar")
+        elif priority >= self.retrieve_threshold:
+            action = "retrieve_local"
+            reasons.append("contrastar_memoria_local")
+        else:
+            action = "observe_only"
+            reasons.append("evidencia_insuficiente_para_actuar")
+        decision = CuriosityDecision(priority, action, False, action == "propose_replay", tuple(reasons), normalized)
+        self.assessments.append(decision)
+        return decision
+
+    def manifest(self) -> dict:
+        return {
+            "assessments": len(self.assessments),
+            "risk_block_threshold": self.risk_block_threshold,
+            "actions": {action: sum(item.action == action for item in self.assessments) for action in ("blocked", "observe_only", "retrieve_local", "ask_clarification", "propose_replay")},
+            "external_action_enabled": False,
+        }
 
 
 class EspacioTrabajoGlobal(nn.Module):
@@ -336,6 +479,7 @@ class AethelNextGen(nn.Module):
         memory_file = Path(memory_path)
         self.liquid = ElLiquido(config.dim, config.memory_decay, memory_file.with_name("liquid_versions.jsonl"))
         self.neuromodulation = Neuromodulacion(config.dim)
+        self.curiosity = CuriosityController(config.curiosity_risk_block_threshold) if config.curiosity_enabled else None
         self.workspace = EspacioTrabajoGlobal(config.dim)
         self.sleep = CicloDeSueno(config.replay_capacity)
         self.memory = MemoriaEpisodica(memory_path, config.dim, config.replay_capacity)
@@ -402,7 +546,14 @@ class AethelNextGen(nn.Module):
             if self.config.adaptive_compute_penalty and self.adaptive_refinement is not None:
                 loss = loss + self.config.adaptive_compute_penalty * adaptive_probability
         priority, surprise = self.neuromodulation(working, loss)
-        self.last_metrics.update({"memory_hits": self.last_metrics.get("memory_hits", 0) + memory_hit, "memory_records": len(self.memory.records), "semantic_records": len(self.semantic_memory.records), "replay_records": len(self.sleep.replay), "aux_loss": float(aux_loss.detach().cpu()), "neuromodulation": float(priority.cpu()), "surprise": float(surprise.cpu()), "adaptive_compute": adaptive_metrics, "reasoning_trace": {"protocol": ["recuperación", "integración", "refinamiento presupuestado", "predicción"], "episodic": episodic_trace, "semantic": semantic_trace, "workspace_weights": dict(self.workspace.last_weights), "internal_chain_of_thought_exposed": False}, "pillars": {"La Roca": True, "El Líquido": True, "Ciclo de Sueño": True, "Neuromodulación": True, "Espacio de Trabajo Global": True}})
+        semantic_similarity = semantic_trace.get("top_similarity")
+        novelty = 0.50 if semantic_similarity is None else max(0.0, min(1.0, 1.0 - (float(semantic_similarity) + 1.0) / 2.0))
+        curiosity = None
+        if self.curiosity is not None:
+            # El núcleo aún no estima progreso longitudinal ni contradicción factual;
+            # declara esos valores como cero en vez de inventarlos.
+            curiosity = self.curiosity.assess(CuriositySignals(uncertainty=float(torch.sigmoid(surprise.detach()).cpu()), novelty=novelty, contradiction=0.0, expected_progress=0.0, risk=0.0, cost=0.0, permitted=True)).to_dict()
+        self.last_metrics.update({"memory_hits": self.last_metrics.get("memory_hits", 0) + memory_hit, "memory_records": len(self.memory.records), "semantic_records": len(self.semantic_memory.records), "replay_records": len(self.sleep.replay), "aux_loss": float(aux_loss.detach().cpu()), "neuromodulation": float(priority.cpu()), "surprise": float(surprise.cpu()), "curiosity": curiosity, "adaptive_compute": adaptive_metrics, "reasoning_trace": {"protocol": ["recuperación", "integración", "refinamiento presupuestado", "predicción"], "episodic": episodic_trace, "semantic": semantic_trace, "workspace_weights": dict(self.workspace.last_weights), "internal_chain_of_thought_exposed": False}, "pillars": {"La Roca": True, "El Líquido": True, "Ciclo de Sueño": True, "Neuromodulación": True, "Curiosidad funcional": self.curiosity is not None, "Espacio de Trabajo Global": True}})
         return logits, loss, dict(self.last_metrics)
 
     @torch.no_grad()
@@ -425,4 +576,4 @@ class AethelNextGen(nn.Module):
         return coefficient * penalty
 
     def export_memory_manifest(self) -> dict:
-        return {"episodic_records": len(self.memory.records), "episodic": {"capacity": self.memory.capacity, "path": str(self.memory.path)}, "semantic": self.semantic_memory.manifest(), "replay": self.sleep.manifest(), "liquid": self.liquid.manifest(), "reasoning_protocol": ["recuperación", "integración", "predicción"]}
+        return {"episodic_records": len(self.memory.records), "episodic": {"capacity": self.memory.capacity, "path": str(self.memory.path)}, "semantic": self.semantic_memory.manifest(), "replay": self.sleep.manifest(), "liquid": self.liquid.manifest(), "curiosity": self.curiosity.manifest() if self.curiosity is not None else {"enabled": False, "external_action_enabled": False}, "reasoning_protocol": ["recuperación", "integración", "predicción"]}

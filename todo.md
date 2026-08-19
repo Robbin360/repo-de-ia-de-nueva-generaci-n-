@@ -242,3 +242,5 @@
 - [x] Especificar el ciclo operativo y los contratos de seguridad entre los módulos sólido, líquido y sueño
 - [x] Definir métricas experimentales y puertas de validación para la arquitectura cognitiva antes de entrenar
 - [x] Añadir una prueba CPU de contratos cognitivos: La Roca no muta durante observación, El Líquido queda versionado y la traza no expone razonamiento interno
+- [x] Documentar la autonomía de aprendizaje acotada de Aethel, sus objetivos de competencia y los límites frente a un cerebro humano
+- [x] Especificar un controlador de curiosidad funcional que priorice incertidumbre, novedad, contradicción y lagunas sin autoasignarse objetivos ilimitados
