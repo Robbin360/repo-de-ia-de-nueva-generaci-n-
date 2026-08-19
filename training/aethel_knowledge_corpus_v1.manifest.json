@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "dataset_id": "aethel-knowledge-reasoning-bilingual-v1",
+  "purpose": "Corpus real y trazable para preentrenamiento bilingüe de lenguaje, conocimiento general, matemáticas, ciencia, ingeniería y programación; no contiene ejemplos sintéticos.",
+  "created_utc": "2026-08-19T00:00:00Z",
+  "licenses": [
+    {
+      "id": "CC-BY-SA-4.0",
+      "name": "Creative Commons Attribution-ShareAlike 4.0 International",
+      "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+    }
+  ],
+  "sources": [
+    {
+      "id": "wikimedia-enwiki-multistream-1",
+      "language": "en",
+      "required": true,
+      "url": "https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles-multistream1.xml-p1p41242.bz2",
+      "license": "CC-BY-SA-4.0",
+      "target_documents": 20000,
+      "min_characters": 500,
+      "max_characters": 24000
+    },
+    {
+      "id": "wikimedia-eswiki-multistream-1",
+      "language": "es",
+      "required": true,
+      "url": "https://dumps.wikimedia.org/eswiki/latest/eswiki-latest-pages-articles-multistream1.xml-p1p159400.bz2",
+      "license": "CC-BY-SA-4.0",
+      "target_documents": 20000,
+      "min_characters": 500,
+      "max_characters": 24000
+    }
+  ],
+  "splits": {
+    "train_percent": 95,
+    "holdout_percent": 5,
+    "seed": "aethel-knowledge-reasoning-bilingual-v1"
+  },
+  "acceptance": {
+    "minimum_documents_per_language": 14000,
+    "required_languages": ["en", "es"],
+    "minimum_total_documents": 28000,
+    "minimum_domain_coverage_per_language": ["language", "mathematics", "science", "engineering", "programming", "general"],
+    "prohibit_synthetic_text": true,
+    "require_source_hashes": true,
+    "require_holdout": true
+  }
+}

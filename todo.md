@@ -231,3 +231,9 @@
 - [x] Añadir y validar una ruta inglesa de respaldo con procedencia verificable ante HTTP 502 simultáneos de OLC y Project Gutenberg
 - [ ] Pegar la celda V11 en Kaggle, confirmar que selecciona el bundle con respaldo Wikimedia y ejecutar la puerta bilingüe
 - [x] Tratar `IncompleteRead` de Hugging Face como fallo reintentable y aislar fuentes auxiliares para que no aborten la preparación
+- [ ] Separar el piloto en preparación de corpus preempaquetado, validación de conteos y entrenamiento GPU, sin descargas de red durante la corrida
+- [ ] Ejecutar una prueba corta de entrenamiento real exclusivamente después de montar un corpus bilingüe validado localmente en Kaggle
+- [x] Construir un Dataset bilingüe trazable de lenguaje, matemáticas, ciencia, ingeniería y programación con fuentes reales aprobadas
+- [x] Validar procedencia, licencias, idioma, deduplicación, balance de dominios y separación de holdout antes de cualquier entrenamiento
+- [x] Empaquetar y versionar localmente el Dataset de datos independiente del bundle de código de Aethel
+- [ ] Publicar el paquete validado como Dataset privado de Kaggle `aethel-nextgen-data-v1` sin iniciar una sesión GPU
