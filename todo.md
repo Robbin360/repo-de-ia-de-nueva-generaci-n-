@@ -251,3 +251,4 @@
 - [x] Exigir un registro de aprobación independiente y vinculada al hash de procedencia antes de admitir un evento al replay de Sueño
 - [x] Implementar preflight de Sueño que vincule La Roca, Dataset congelado y replay aprobado, rechazando inconsistencias y holdout antes de ajuste
 - [x] Implementar una máquina de estados auditable para Sueño que impida saltos de cuarentena, ejecución y promoción sin autoridad explícita
+- [x] Integrar el reporte de preflight con la máquina de estados para permitir únicamente la transición de cuarentena a preflight válido

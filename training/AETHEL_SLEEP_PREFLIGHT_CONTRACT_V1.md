@@ -18,3 +18,7 @@ El preflight recibe cuatro artefactos versionados: manifiesto de La Roca, manifi
 Una pasada correcta produce `quarantined_preflight_pass`, no “entrenamiento autorizado”. La salida conserva `eligible_for_training=false`, `eligible_for_promotion=false`, `optimizer_creation_enabled=false`, `holdout_access_enabled=false` y `requires_runtime_authorization=true`.
 
 > El preflight sólo prueba que los manifiestos son compatibles y que sus bloqueos declarados permanecen activos. Antes de un ajuste real deberán verificarse de nuevo los hashes de archivos, el presupuesto, las credenciales de autorización y la política de ejecución.
+
+## Integración de estado
+
+Un reporte íntegro puede registrar **solamente** la transición `quarantined → preflight_pass` del candidato identificado por ese mismo reporte. El enlace comprueba hash del reporte, `candidate_id` y hash de La Roca; no admite estados posteriores, no crea un optimizador y no inicia runtime.

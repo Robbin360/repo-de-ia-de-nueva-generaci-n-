@@ -130,3 +130,24 @@ def run_sleep_preflight(
     }
     report["report_sha256"] = _sha256(report)
     return report
+
+
+def verify_sleep_preflight_report(report: dict[str, Any]) -> dict[str, Any]:
+    """Verifica un reporte emitido por preflight sin ejecutar ninguna transición."""
+    _require(report, "kind", "aethel_sleep_preflight_report")
+    _require(report, "preflight_status", "quarantined_preflight_pass")
+    unsigned = {key: value for key, value in report.items() if key != "report_sha256"}
+    if _require_sha256(_require(report, "report_sha256"), "report_sha256") != _sha256(unsigned):
+        raise ValueError("El hash del reporte de preflight no coincide")
+    for key in (
+        "eligible_for_training",
+        "eligible_for_promotion",
+        "optimizer_creation_enabled",
+        "holdout_access_enabled",
+    ):
+        _require(report, key, False)
+    _require(report, "requires_runtime_authorization", True)
+    _require_sha256(_require(report, "parent_rock_state_sha256"), "parent_rock_state_sha256")
+    if not str(_require(report, "candidate_id")).strip():
+        raise ValueError("candidate_id no puede estar vacío")
+    return dict(report)
