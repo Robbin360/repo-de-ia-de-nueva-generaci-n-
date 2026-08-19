@@ -7,6 +7,7 @@ inventados ni usa conjuntos retenidos de evaluación.
 from __future__ import annotations
 
 import argparse
+import bz2
 import gzip
 import hashlib
 import json
@@ -15,6 +16,7 @@ import time
 import unicodedata
 import urllib.error
 import urllib.request
+import xml.etree.ElementTree as etree
 from email.utils import parsedate_to_datetime
 from collections import defaultdict
 from pathlib import Path
@@ -229,6 +231,49 @@ def dictionary_rows(source: dict, cache_dir: Path | None = None) -> Iterator[dic
                 yield {"text": text}
 
 
+WIKITEXT_TEMPLATE_RE = re.compile(r"\{\{[^{}]*\}\}", re.DOTALL)
+WIKITEXT_REF_RE = re.compile(r"<ref\b[^>/]*?(?:/>|>.*?</ref\s*>)", re.IGNORECASE | re.DOTALL)
+WIKITEXT_TAG_RE = re.compile(r"<[^>]+>")
+WIKITEXT_LINK_RE = re.compile(r"\[\[([^\]|]+)\|?([^\]]*)\]\]")
+
+
+def plain_wikitext(value: str) -> str:
+    """Reduce marcado de MediaWiki de forma conservadora, sin crear contenido."""
+    text = WIKITEXT_REF_RE.sub(" ", value)
+    previous = None
+    while previous != text:
+        previous = text
+        text = WIKITEXT_TEMPLATE_RE.sub(" ", text)
+    text = WIKITEXT_LINK_RE.sub(lambda match: match.group(2) or match.group(1), text)
+    text = text.replace("'''", "").replace("''", "")
+    return " ".join(WIKITEXT_TAG_RE.sub(" ", text).split())
+
+
+def wikimedia_dump_rows(source: dict, cache_dir: Path | None = None) -> Iterator[dict]:
+    """Extrae páginas de espacio principal desde un fragmento XML oficial de Wikimedia."""
+    if cache_dir is None:
+        cache_dir = Path(".aethel-source-cache")
+    local_path = download_resumable(source, cache_dir)
+    opener = bz2.open if local_path.suffix == ".bz2" else local_path.open
+    with opener(local_path, "rb") as stream:
+        for _, element in etree.iterparse(stream, events=("end",)):
+            if element.tag.rsplit("}", 1)[-1] != "page":
+                continue
+            fields = {child.tag.rsplit("}", 1)[-1]: child for child in element}
+            namespace = (fields.get("ns").text or "").strip() if fields.get("ns") is not None else ""
+            revision = fields.get("revision")
+            text_node = None
+            if revision is not None:
+                for child in revision:
+                    if child.tag.rsplit("}", 1)[-1] == "text":
+                        text_node = child
+                        break
+            raw = text_node.text if text_node is not None else None
+            if namespace == "0" and "redirect" not in fields and raw:
+                yield {"text": plain_wikitext(raw)}
+            element.clear()
+
+
 def source_rows(source: dict, cache_dir: Path | None = None) -> Iterable[dict]:
     kind = source["kind"]
     if kind == "hf_text":
@@ -237,6 +282,8 @@ def source_rows(source: dict, cache_dir: Path | None = None) -> Iterable[dict]:
         return hf_rows_api(source, cache_dir)
     if kind == "wiktionary_jsonl":
         return dictionary_rows(source, cache_dir)
+    if kind == "wikimedia_xml_dump":
+        return wikimedia_dump_rows(source, cache_dir)
     raise ValueError(f"Tipo de fuente no admitido: {kind}")
 
 
@@ -276,8 +323,11 @@ def run(args: argparse.Namespace) -> None:
     source_hashes = {source["id"]: hashlib.sha256() for source in sources}
     language_counts: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     cache_dir = output / ".source_cache"
-    streams = {source["id"]: iter(source_rows(source, cache_dir)) for source in sources}
-    active = list(sources)
+    streams: dict[str, Iterator[dict]] = {}
+    required_sources = [source for source in sources if source.get("required", True)]
+    optional_sources = [source for source in sources if not source.get("required", True)]
+    active = list(required_sources)
+    optional_started = False
     shard_number, records_in_shard = 0, 0
     shards: list[dict[str, str]] = []
     handle: gzip.GzipFile | None = None
@@ -294,6 +344,13 @@ def run(args: argparse.Namespace) -> None:
 
     handle = open_shard()
     validation_path = output / "validation.jsonl.gz"
+
+    def stream_for(source: dict) -> Iterator[dict]:
+        source_id = source["id"]
+        if source_id not in streams:
+            streams[source_id] = iter(source_rows(source, cache_dir))
+        return streams[source_id]
+
     with gzip.open(validation_path, "wb") as validation:
         while active:
             next_active: list[dict] = []
@@ -302,7 +359,7 @@ def run(args: argparse.Namespace) -> None:
                 if stats["accepted"] + stats["validation"] >= int(source["document_limit"]):
                     continue
                 try:
-                    row = next(streams[source["id"]])
+                    row = next(stream_for(source))
                 except StopIteration:
                     stats["exhausted"] += 1
                     continue
@@ -330,7 +387,20 @@ def run(args: argparse.Namespace) -> None:
                     records_in_shard += 1
                     if records_in_shard >= args.shard_documents:
                         handle = open_shard()
-            active = next_active
+            if next_active:
+                active = next_active
+                continue
+            if optional_started:
+                active = []
+                continue
+            required_by_language = manifest.get("minimum_documents_by_language", {})
+            missing_languages = {
+                language
+                for language, minimum in required_by_language.items()
+                if language_counts[language]["accepted"] + language_counts[language]["validation"] < int(minimum)
+            }
+            active = [source for source in optional_sources if source["language"] in missing_languages]
+            optional_started = True
     handle.close()
     for item in shards:
         path = output / item["path"]
@@ -349,10 +419,12 @@ def run(args: argparse.Namespace) -> None:
     resolved_sources = []
     for source in sources:
         total = source_counts[source["id"]]["accepted"] + source_counts[source["id"]]["validation"]
-        if total < int(source.get("minimum_documents", 1)):
+        if source.get("required", True) and total < int(source.get("minimum_documents", 1)):
             raise RuntimeError(f"Datos insuficientes para {source['id']}: {total} < {source.get('minimum_documents', 1)}")
         resolved = dict(source)
-        if source["kind"] == "wiktionary_jsonl":
+        if source["kind"] in {"wiktionary_jsonl", "wikimedia_xml_dump"}:
+            if source.get("revision"):
+                resolved["declared_revision"] = source["revision"]
             resolved["revision"] = source_hashes[source["id"]].hexdigest()
             resolved["revision_kind"] = "sha256-del-contenido-filtrado"
         resolved_sources.append(resolved)

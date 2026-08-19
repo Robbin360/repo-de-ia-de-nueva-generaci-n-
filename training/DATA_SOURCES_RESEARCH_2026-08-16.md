@@ -50,3 +50,12 @@ Esta adición no elimina OLC, Wikipedia ni Kaikki y no rebaja la puerta de 14.00
 [16]: https://huggingface.co/datasets/manu/project_gutenberg "Project Gutenberg dataset card"
 [17]: https://huggingface.co/api/datasets/manu/project_gutenberg/revision/main "Project Gutenberg immutable revision metadata"
 [18]: https://www.gutenberg.org/policy/license.html "Project Gutenberg license policy"
+
+## Respaldo oficial fuera de Hugging Face: fragmento de Wikipedia inglesa
+
+El 19 de agosto de 2026 se comprobó que el servidor oficial de Wikimedia responde `200 OK`, acepta descargas parciales mediante `Range` y publica el fragmento `enwiki-latest-pages-articles-multistream1.xml-p1p41242.bz2` en `https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles-multistream1.xml-p1p41242.bz2`. La respuesta inspeccionada declara 299.138.062 bytes, `Last-Modified: Wed, 05 Aug 2026 18:41:29 GMT` y `ETag: "6a7383d9-11d47c0e"`.
+
+La documentación oficial describe los dumps `pages-articles-multistream.xml.bz2` como revisiones actuales sin páginas de discusión ni de usuario y explica que cada flujo multistream contiene aproximadamente 100 páginas. El adaptador nuevo reanuda el archivo comprimido con `Range`, lee XML de forma incremental, conserva sólo espacio principal, descarta redirecciones y reduce marcado de MediaWiki sin inventar contenido. Después aplica los filtros, hashes, deduplicación y puertas bilingües ya existentes. El texto de los dumps se conserva bajo CC BY-SA y GFDL conforme a la documentación oficial; su incorporación no equivale a autorizar una distribución pública posterior sin atribución y revisión de licencia.
+
+[19]: https://dumps.wikimedia.org/enwiki/latest/ "Índice oficial de dumps de Wikipedia inglesa"
+[20]: https://en.wikipedia.org/wiki/Wikipedia:Database_download "Guía oficial de descargas de Wikipedia"

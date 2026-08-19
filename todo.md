@@ -228,3 +228,4 @@
 - [x] Verificar en Kaggle que se selecciona la versión nueva antes de ejecutar el launcher
 - [x] Corregir la celda del cuaderno que aún selecciona `pKXqovDfRmpcogEs` en vez del bundle Gutenberg
 - [ ] Repetir la preparación sin interrumpirla y confirmar la puerta real de conteos bilingües
+- [x] Añadir y validar una ruta inglesa de respaldo con procedencia verificable ante HTTP 502 simultáneos de OLC y Project Gutenberg

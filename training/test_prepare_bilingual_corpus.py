@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import bz2
 import gzip
 import importlib.util
 import json
@@ -104,6 +105,66 @@ class PrepareBilingualCorpusTest(unittest.TestCase):
                 self.assertEqual(target.read_bytes(), b"first-second")
                 request = open_mock.call_args.args[0]
                 self.assertEqual(request.headers["Range"], "bytes=6-")
+
+    def test_wikimedia_dump_rows_reads_mainspace_and_drops_redirects(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            cache_dir = Path(temporary)
+            source = {"id": "dump", "url": "https://example.invalid/enwiki.xml.bz2", "max_retries": 1}
+            target = cache_dir / "dump" / "enwiki.xml.bz2"
+            target.parent.mkdir(parents=True)
+            xml = """<mediawiki>
+              <page><title>Article</title><ns>0</ns><revision><text>Readable [[Article|article]] &lt;ref&gt;source&lt;/ref&gt; text.</text></revision></page>
+              <page><title>Redirect</title><ns>0</ns><redirect title=\"Article\"/><revision><text>#REDIRECT [[Article]]</text></revision></page>
+              <page><title>Talk</title><ns>1</ns><revision><text>Not an article.</text></revision></page>
+            </mediawiki>"""
+            with bz2.open(target, "wb") as handle:
+                handle.write(xml.encode("utf-8"))
+            self.assertEqual(list(MODULE.wikimedia_dump_rows(source, cache_dir)), [{"text": "Readable article text."}])
+
+    def test_optional_source_does_not_override_language_quality_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            manifest = {
+                "approval_required": False,
+                "purpose": "test",
+                "minimum_documents_by_language": {"en": 1},
+                "sources": [
+                    {"id": "primary", "kind": "hf_text", "language": "en", "document_limit": 1, "license": "test", "provenance_url": "https://example.invalid/primary", "revision": "a" * 40, "enabled": True},
+                    {"id": "optional", "kind": "hf_text", "language": "en", "document_limit": 1, "minimum_documents": 1, "required": False, "license": "test", "provenance_url": "https://example.invalid/optional", "revision": "b" * 40, "enabled": True},
+                ],
+                "filters": {"min_characters": 10, "max_characters": 1000, "deduplicate_exact": True, "validation_percent": 0.0},
+            }
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            with patch.object(MODULE, "source_rows", side_effect=lambda source, cache_dir=None: iter([{"text": "Primary reference document."}]) if source["id"] == "primary" else iter(())):
+                MODULE.run(argparse.Namespace(manifest=str(manifest_path), output=str(root / "output"), shard_documents=10, seed=17, allow_network=True, approved_data_plan=False))
+            report = json.loads((root / "output" / "prepared_manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(report["source_counts"]["optional"].get("accepted", 0), 0)
+
+    def test_optional_source_is_not_opened_when_required_sources_meet_language_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            manifest = {
+                "approval_required": False,
+                "purpose": "test",
+                "minimum_documents_by_language": {"en": 1},
+                "sources": [
+                    {"id": "primary", "kind": "hf_text", "language": "en", "document_limit": 1, "minimum_documents": 1, "license": "test", "provenance_url": "https://example.invalid/primary", "revision": "a" * 40, "enabled": True},
+                    {"id": "optional", "kind": "hf_text", "language": "en", "document_limit": 1, "minimum_documents": 1, "required": False, "license": "test", "provenance_url": "https://example.invalid/optional", "revision": "b" * 40, "enabled": True},
+                ],
+                "filters": {"min_characters": 10, "max_characters": 1000, "deduplicate_exact": True, "validation_percent": 0.0},
+            }
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            calls: list[str] = []
+
+            def fake_rows(source: dict, cache_dir=None):
+                calls.append(source["id"])
+                return iter([{"text": "Primary reference document."}])
+
+            with patch.object(MODULE, "source_rows", side_effect=fake_rows):
+                MODULE.run(argparse.Namespace(manifest=str(manifest_path), output=str(root / "output"), shard_documents=10, seed=17, allow_network=True, approved_data_plan=False))
+            self.assertEqual(calls, ["primary"])
 
 
 class DummyResponse:
