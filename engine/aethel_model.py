@@ -37,6 +37,20 @@ def enforce_triton_prefill_contract(*, require_triton: bool, is_cuda: bool, is_d
             "SDPA no está permitido mientras esa ruta no exista."
         )
 
+
+def enforce_triton_moe_dispatch_contract(*, require_triton: bool, is_cuda: bool) -> None:
+    """Bloquea el loop de expertos PyTorch cuando la producción exige Triton.
+
+    Top-2 Triton sólo selecciona expertos: no reemplaza el scatter, cómputo
+    agrupado y combina. El modo estricto debe esperar un kernel completo y
+    validado en GPU, no declarar esa ruta parcial como dispatch MoE.
+    """
+    if require_triton and is_cuda:
+        raise RuntimeError(
+            "Aethel exige un kernel Triton validado de dispatch/combina MoE; "
+            "el bucle PyTorch de expertos no está permitido en producción."
+        )
+
 class RMSNorm(nn.Module):
     def __init__(self, dim: int, eps: float = 1e-6):
         super().__init__()
@@ -115,6 +129,10 @@ class SparseMoE(nn.Module):
         batch_size, seq_len, dim = x.shape
         x_flat = x.view(-1, dim)
         num_tokens = x_flat.shape[0]
+        enforce_triton_moe_dispatch_contract(
+            require_triton=self.experts[0].require_triton,
+            is_cuda=x.is_cuda,
+        )
         
         # Logits del Router
         router_logits = self.gate(x_flat) + self.router_bias.to(x_flat.dtype)
