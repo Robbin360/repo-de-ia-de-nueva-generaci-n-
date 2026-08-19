@@ -248,3 +248,4 @@
 - [x] Implementar manifiesto inmutable de La Roca y rama candidata LoRA aislada para Sueño, con prueba CPU de integridad y reversión
 - [x] Medir progreso longitudinal de aprendizaje en El Líquido para que la curiosidad priorice reducción de incertidumbre en vez de ruido impredecible
 - [x] Implementar una puerta de admisión de replay que exija curación, procedencia, aprobación explícita y separación de holdout sin iniciar ajuste
+- [x] Exigir un registro de aprobación independiente y vinculada al hash de procedencia antes de admitir un evento al replay de Sueño
