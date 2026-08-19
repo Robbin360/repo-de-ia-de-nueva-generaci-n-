@@ -22,6 +22,21 @@ class AethelConfig:
     router_bias_limit: float = 0.25
     require_triton: bool = False
 
+
+def enforce_triton_prefill_contract(*, require_triton: bool, is_cuda: bool, is_decode: bool) -> None:
+    """Impide que producción use SDPA para prefill cuando Triton es obligatorio.
+
+    La decodificación token a token dispone de una ruta Triton separada. El
+    prefill causal por bloques todavía no tiene un kernel GPU validado, por lo
+    que en modo de producción debe fallar de manera explícita, no degradarse
+    silenciosamente a SDPA.
+    """
+    if require_triton and is_cuda and not is_decode:
+        raise RuntimeError(
+            "Aethel exige un kernel Triton causal validado para prefill CUDA; "
+            "SDPA no está permitido mientras esa ruta no exista."
+        )
+
 class RMSNorm(nn.Module):
     def __init__(self, dim: int, eps: float = 1e-6):
         super().__init__()
@@ -200,9 +215,16 @@ class Attention(nn.Module):
         k_trans = k_rep.transpose(1, 2)
         v_trans = v_rep.transpose(1, 2)
 
-        # Triton acelera el paso de decodificación con KV-cache; el prefill
-        # conserva SDPA hasta validar un kernel causal por bloques en GPU.
-        if kv_cache is not None and T == 1 and mask is None:
+        # Triton acelera el paso de decodificación con KV-cache. El prefill
+        # causal por bloques aún no tiene kernel GPU validado y se bloquea
+        # explícitamente si la configuración exige Triton en producción.
+        is_decode = kv_cache is not None and T == 1 and mask is None
+        enforce_triton_prefill_contract(
+            require_triton=self.require_triton,
+            is_cuda=x.is_cuda,
+            is_decode=is_decode,
+        )
+        if is_decode:
             output = causal_decode_attention(q_trans, k_trans, v_trans, require_triton=self.require_triton and x.is_cuda)
         else:
             output = F.scaled_dot_product_attention(

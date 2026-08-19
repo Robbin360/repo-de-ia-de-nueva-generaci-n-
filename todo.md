@@ -152,6 +152,7 @@
 - [x] Documentar TypeScript/Node.js y Tailwind/React como interfaz y capa de conexión de Aethel
 - [x] Restringir Python/PyTorch en la especificación a laboratorio temporal de topología, entrenamiento y horneado de pesos
 - [ ] Implementar y validar la ruta Triton obligatoria para atención causal y routing/dispatch MoE en GPU; actualmente sólo SwiGLU está integrado
+- [x] Bloquear explícitamente el prefill CUDA cuando `require_triton` esté activo hasta disponer de un kernel causal validado en GPU
 - [x] Preparar kernels Triton de atención causal de decodificación y selección top-2 del router con equivalencia CPU y preflight CUDA explícito
 - [x] Diseñar el contrato de inferencia local token a token para un runtime Mojo
 - [ ] Desplegar y validar el servicio Rust persistente en un host autorizado con supervisión real, healthcheck y restauración automática de snapshot
