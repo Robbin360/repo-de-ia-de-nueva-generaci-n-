@@ -237,3 +237,7 @@
 - [x] Validar procedencia, licencias, idioma, deduplicación, balance de dominios y separación de holdout antes de cualquier entrenamiento
 - [x] Empaquetar y versionar localmente el Dataset de datos independiente del bundle de código de Aethel
 - [ ] Publicar el paquete validado como Dataset privado de Kaggle `aethel-nextgen-data-v1` sin iniciar una sesión GPU
+- [x] Mantener local el paquete de Dataset validado y suspender su publicación en Kaggle por decisión del usuario
+- [x] Auditar el estado actual de La Roca, El Líquido, Ciclo de Sueño, neuromodulación, memoria y espacio de trabajo global
+- [x] Especificar el ciclo operativo y los contratos de seguridad entre los módulos sólido, líquido y sueño
+- [x] Definir métricas experimentales y puertas de validación para la arquitectura cognitiva antes de entrenar
