@@ -62,19 +62,22 @@ class LaRoca(nn.Module):
 class ElLiquido(nn.Module):
     """Ruta líquida: plasticidad rápida mediante traza Hebbiana versionada."""
 
-    def __init__(self, dim: int, decay: float, snapshot_path: str | Path | None = None):
+    def __init__(self, dim: int, decay: float, snapshot_path: str | Path | None = None, curiosity_path: str | Path | None = None, curiosity_ttl: int = 64):
         super().__init__()
         self.decay = decay
         self.plastic_projection = nn.Linear(dim, dim, bias=False)
         self.register_buffer("hebbian_trace", torch.zeros(1, dim), persistent=False)
         self.snapshot_path = Path(snapshot_path) if snapshot_path else None
+        self.curiosity_path = Path(curiosity_path) if curiosity_path else None
+        self.curiosity_ttl = curiosity_ttl
+        self.curiosity_events = 0
         self.version = 0
 
     def forward(self, observation: torch.Tensor) -> torch.Tensor:
         return self.plastic_projection(observation) + self.hebbian_trace.to(observation.device, observation.dtype)
 
     @torch.no_grad()
-    def observe(self, state: torch.Tensor, salience: float) -> None:
+    def observe(self, state: torch.Tensor, salience: float, curiosity: Optional[dict] = None) -> None:
         normalized = F.normalize(state.detach().float(), dim=-1).mean(dim=0, keepdim=True)
         self.hebbian_trace.mul_(self.decay).add_(normalized * float(max(0.0, min(1.0, salience))) * (1.0 - self.decay))
         self.version += 1
@@ -83,9 +86,33 @@ class ElLiquido(nn.Module):
             record = {"version": self.version, "salience": float(salience), "trace_norm": float(self.hebbian_trace.norm().cpu()), "decay": self.decay}
             with self.snapshot_path.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(record) + "\\n")
+        if curiosity is not None:
+            self.record_curiosity(curiosity)
+
+    def record_curiosity(self, curiosity: dict) -> None:
+        """Guarda una propuesta líquida, no una orden ni datos de entrenamiento."""
+        if self.curiosity_path is None:
+            return
+        self.curiosity_path.parent.mkdir(parents=True, exist_ok=True)
+        record = {
+            "liquid_version": self.version,
+            "source": "local_curiosity_telemetry",
+            "ttl_observations": self.curiosity_ttl,
+            "eligible_for_sleep": False,
+            "action": str(curiosity.get("action", "observe_only")),
+            "priority": float(curiosity.get("priority", 0.0)),
+            "blocked": bool(curiosity.get("blocked", False)),
+            "requires_approval": bool(curiosity.get("requires_approval", False)),
+            "reasons": list(curiosity.get("reasons", [])),
+            "signals": dict(curiosity.get("signals", {})),
+            "external_action_enabled": False,
+        }
+        with self.curiosity_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+        self.curiosity_events += 1
 
     def manifest(self) -> dict:
-        return {"version": self.version, "decay": self.decay, "trace_norm": float(self.hebbian_trace.norm().detach().cpu()), "snapshot_path": str(self.snapshot_path) if self.snapshot_path else None}
+        return {"version": self.version, "decay": self.decay, "trace_norm": float(self.hebbian_trace.norm().detach().cpu()), "snapshot_path": str(self.snapshot_path) if self.snapshot_path else None, "curiosity_events": self.curiosity_events, "curiosity_path": str(self.curiosity_path) if self.curiosity_path else None, "curiosity_ttl": self.curiosity_ttl}
 
 
 class Neuromodulacion(nn.Module):
@@ -163,18 +190,27 @@ class CuriosityController:
         clarify_threshold: float = 0.45,
         replay_threshold: float = 0.60,
         min_progress_for_replay: float = 0.20,
+        assessment_capacity: int = 2048,
     ):
         thresholds = (risk_block_threshold, retrieve_threshold, clarify_threshold, replay_threshold, min_progress_for_replay)
         if any(not 0.0 <= value <= 1.0 for value in thresholds):
             raise ValueError("Los umbrales de curiosidad deben estar entre 0 y 1")
         if not retrieve_threshold <= clarify_threshold <= replay_threshold:
             raise ValueError("Los umbrales de curiosidad deben ser crecientes")
+        if assessment_capacity < 1:
+            raise ValueError("La capacidad de evaluaciones de curiosidad debe ser positiva")
         self.risk_block_threshold = risk_block_threshold
         self.retrieve_threshold = retrieve_threshold
         self.clarify_threshold = clarify_threshold
         self.replay_threshold = replay_threshold
         self.min_progress_for_replay = min_progress_for_replay
+        self.assessment_capacity = assessment_capacity
         self.assessments: list[CuriosityDecision] = []
+
+    def _append(self, decision: CuriosityDecision) -> CuriosityDecision:
+        self.assessments.append(decision)
+        self.assessments = self.assessments[-self.assessment_capacity:]
+        return decision
 
     @staticmethod
     def _bounded(value: float, name: str) -> float:
@@ -201,8 +237,7 @@ class CuriosityController:
             reasons.append("riesgo_alto")
         if blocked:
             decision = CuriosityDecision(0.0, "blocked", True, True, tuple(reasons), normalized)
-            self.assessments.append(decision)
-            return decision
+            return self._append(decision)
 
         raw_priority = (
             0.20 * normalized.uncertainty
@@ -231,12 +266,12 @@ class CuriosityController:
             action = "observe_only"
             reasons.append("evidencia_insuficiente_para_actuar")
         decision = CuriosityDecision(priority, action, False, action == "propose_replay", tuple(reasons), normalized)
-        self.assessments.append(decision)
-        return decision
+        return self._append(decision)
 
     def manifest(self) -> dict:
         return {
             "assessments": len(self.assessments),
+            "assessment_capacity": self.assessment_capacity,
             "risk_block_threshold": self.risk_block_threshold,
             "actions": {action: sum(item.action == action for item in self.assessments) for action in ("blocked", "observe_only", "retrieve_local", "ask_clarification", "propose_replay")},
             "external_action_enabled": False,
@@ -477,7 +512,7 @@ class AethelNextGen(nn.Module):
         self.core = AethelModel(config.model_config())
         self.rock = LaRoca(config.dim)
         memory_file = Path(memory_path)
-        self.liquid = ElLiquido(config.dim, config.memory_decay, memory_file.with_name("liquid_versions.jsonl"))
+        self.liquid = ElLiquido(config.dim, config.memory_decay, memory_file.with_name("liquid_versions.jsonl"), memory_file.with_name("curiosity_events.jsonl"))
         self.neuromodulation = Neuromodulacion(config.dim)
         self.curiosity = CuriosityController(config.curiosity_risk_block_threshold) if config.curiosity_enabled else None
         self.workspace = EspacioTrabajoGlobal(config.dim)
@@ -559,7 +594,7 @@ class AethelNextGen(nn.Module):
     @torch.no_grad()
     def observe(self, tokens: torch.Tensor, salience: float = 1.0) -> dict:
         state = self.memory_state.detach().cpu()
-        self.liquid.observe(state, salience)
+        self.liquid.observe(state, salience, self.last_metrics.get("curiosity"))
         self.memory.add(state, tokens[0].detach().cpu().tolist(), salience)
         self.semantic_memory.add(state, salience)
         self.sleep.consolidate(state, tokens[0].detach().cpu().tolist(), salience)

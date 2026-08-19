@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import tempfile
+import json
 from pathlib import Path
 
 import torch
@@ -39,6 +40,12 @@ def main() -> None:
         assert torch.equal(rock_before, model.rock.stable_projection.weight.detach())
         assert model.liquid.manifest()["version"] == 1
         assert Path(model.liquid.manifest()["snapshot_path"]).is_file()
+        curiosity_path = Path(model.liquid.manifest()["curiosity_path"])
+        assert curiosity_path.is_file() and model.liquid.manifest()["curiosity_events"] == 1
+        curiosity_event = json.loads(curiosity_path.read_text(encoding="utf-8").strip())
+        assert curiosity_event["source"] == "local_curiosity_telemetry"
+        assert curiosity_event["eligible_for_sleep"] is False and curiosity_event["external_action_enabled"] is False
+        assert curiosity_event["ttl_observations"] > 0
         assert metrics["curiosity"]["action"] != "propose_replay"
         assert metrics["curiosity"]["external_action_enabled"] is False
         assert manifest["curiosity"]["external_action_enabled"] is False
