@@ -15,6 +15,7 @@ def main() -> None:
         model = AethelNextGen(NextGenConfig(vocab_size=64, dim=32, layers=1, heads=4, kv_heads=1, experts=2, active_experts=1, max_seq_len=16, memory_slots=4, replay_capacity=8), Path(directory) / "episodic.jsonl")
         tokens = torch.tensor([[1, 2, 3, 4, 5, 6]], dtype=torch.long)
         targets = torch.tensor([[2, 3, 4, 5, 6, 7]], dtype=torch.long)
+        rock_before = model.rock.stable_projection.weight.detach().clone()
         _, loss, _ = model(tokens, targets)
         assert loss is not None and torch.isfinite(loss)
         model.observe(tokens, salience=0.8)
@@ -27,6 +28,9 @@ def main() -> None:
         assert trace["internal_chain_of_thought_exposed"] is False
         assert trace["episodic"]["selected"] == 1 and trace["semantic"]["selected"] == 1
         assert Path(manifest["semantic"]["path"]).is_file()
+        assert torch.equal(rock_before, model.rock.stable_projection.weight.detach())
+        assert model.liquid.manifest()["version"] == 1
+        assert Path(model.liquid.manifest()["snapshot_path"]).is_file()
         print("memory_reasoning_trace OK")
 
 

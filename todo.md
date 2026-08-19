@@ -241,3 +241,4 @@
 - [x] Auditar el estado actual de La Roca, El Líquido, Ciclo de Sueño, neuromodulación, memoria y espacio de trabajo global
 - [x] Especificar el ciclo operativo y los contratos de seguridad entre los módulos sólido, líquido y sueño
 - [x] Definir métricas experimentales y puertas de validación para la arquitectura cognitiva antes de entrenar
+- [x] Añadir una prueba CPU de contratos cognitivos: La Roca no muta durante observación, El Líquido queda versionado y la traza no expone razonamiento interno
