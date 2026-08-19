@@ -223,8 +223,8 @@
 - [x] Subir el bundle regenerado como nueva versión del Dataset privado `aethel-nextgen-source`
 - [ ] Confirmar en Kaggle que la entrada montada contiene el bundle con `project-gutenberg-en` y ejecutar Save Version → Save & Run All
 - [x] Subir el bundle validado con Project Gutenberg como nueva versión del Dataset privado de Kaggle y verificar su contenido
-- [ ] Corregir el selector V9: debe priorizar explícitamente el bundle con `project-gutenberg-en` sobre copias que sólo contienen OLC
+- [x] Corregir el selector V9: debe priorizar explícitamente el bundle con `project-gutenberg-en` sobre copias que sólo contienen OLC
 - [ ] Regenerar y publicar una nueva versión del Dataset con el selector corregido
-- [ ] Verificar en Kaggle que se selecciona la versión nueva antes de ejecutar el launcher
-- [ ] Corregir la celda del cuaderno que aún selecciona `pKXqovDfRmpcogEs` en vez del bundle Gutenberg
+- [x] Verificar en Kaggle que se selecciona la versión nueva antes de ejecutar el launcher
+- [x] Corregir la celda del cuaderno que aún selecciona `pKXqovDfRmpcogEs` en vez del bundle Gutenberg
 - [ ] Repetir la preparación sin interrumpirla y confirmar la puerta real de conteos bilingües
