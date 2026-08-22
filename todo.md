@@ -152,6 +152,8 @@
 - [x] Documentar TypeScript/Node.js y Tailwind/React como interfaz y capa de conexión de Aethel
 - [x] Restringir Python/PyTorch en la especificación a laboratorio temporal de topología, entrenamiento y horneado de pesos
 - [ ] Implementar y validar la ruta Triton obligatoria para atención causal y routing/dispatch MoE en GPU; actualmente sólo SwiGLU está integrado
+- [x] Añadir una referencia CPU explícita de dispatch/combina MoE y pruebas de equivalencia para definir el contrato del futuro kernel Triton
+- [x] Auditar las rutas actuales de atención causal y dispatch/combina MoE frente a los contratos Triton antes de completar kernels GPU
 - [x] Bloquear explícitamente el prefill CUDA cuando `require_triton` esté activo hasta disponer de un kernel causal validado en GPU
 - [x] Bloquear explícitamente el dispatch/combina MoE CUDA cuando `require_triton` esté activo hasta disponer de un kernel Triton validado
 - [x] Documentar la capacidad de la infraestructura actual y los escenarios de escalamiento de cómputo, memoria, red y datos requeridos para Aethel

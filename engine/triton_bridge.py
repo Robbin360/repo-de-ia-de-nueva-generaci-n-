@@ -116,3 +116,44 @@ def top2_router(logits: torch.Tensor, *, require_triton: bool = False) -> tuple[
     probabilities = F.softmax(logits, dim=-1, dtype=torch.float)
     weights, indices = torch.topk(probabilities, 2, dim=-1)
     return (weights / weights.sum(dim=-1, keepdim=True)).to(logits.dtype), indices
+
+
+def moe_dispatch_combine_reference(
+    tokens: torch.Tensor,
+    selected_experts: torch.Tensor,
+    gates: torch.Tensor,
+    expert_functions: list,
+) -> torch.Tensor:
+    """Referencia semántica de dispatch/combina MoE para CPU y pruebas.
+
+    Conserva exactamente el contrato que deberá implementar el kernel Triton:
+    cada asignación `(token, slot)` se agrupa por experto, el experto procesa
+    el token y la contribución se acumula ponderada por el gate normalizado.
+    No es un kernel rápido ni autoriza fallback GPU estricto.
+    """
+    if tokens.ndim != 2:
+        raise ValueError("dispatch MoE espera tokens [tokens, dim]")
+    if selected_experts.ndim != 2 or gates.shape != selected_experts.shape:
+        raise ValueError("selected_experts y gates deben tener forma [tokens, top_k]")
+    if selected_experts.shape[0] != tokens.shape[0]:
+        raise ValueError("cada token debe tener las mismas asignaciones MoE")
+    if selected_experts.dtype != torch.long:
+        raise ValueError("selected_experts debe contener índices torch.long")
+    if not expert_functions:
+        raise ValueError("dispatch MoE requiere al menos un experto")
+    if selected_experts.numel() and (
+        selected_experts.min().item() < 0 or selected_experts.max().item() >= len(expert_functions)
+    ):
+        raise ValueError("índice de experto fuera del catálogo de expertos")
+
+    output = torch.zeros_like(tokens)
+    for expert_index, expert_function in enumerate(expert_functions):
+        token_indices, slots = torch.where(selected_experts == expert_index)
+        if token_indices.numel() == 0:
+            continue
+        expert_output = expert_function(tokens[token_indices])
+        if expert_output.shape != (token_indices.numel(), tokens.shape[1]):
+            raise ValueError("un experto MoE devolvió una forma incompatible")
+        contribution = expert_output * gates[token_indices, slots].unsqueeze(-1).to(expert_output.dtype)
+        output = output.index_add(0, token_indices, contribution.to(output.dtype))
+    return output

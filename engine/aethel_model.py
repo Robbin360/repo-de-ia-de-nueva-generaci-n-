@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import math
 from typing import Optional, Tuple, List
 from dataclasses import dataclass
-from triton_bridge import causal_decode_attention, fused_swiglu, top2_router
+from triton_bridge import causal_decode_attention, fused_swiglu, moe_dispatch_combine_reference, top2_router
 
 @dataclass
 class AethelConfig:
@@ -148,23 +148,15 @@ class SparseMoE(nn.Module):
             topk_weights = topk_weights / topk_weights.sum(dim=-1, keepdim=True)
         topk_weights = topk_weights.to(x.dtype)
         
-        final_hidden_states = torch.zeros(
-            (num_tokens, dim), dtype=x.dtype, device=x.device
+        # Referencia explícita de la semántica que deberá preservar el kernel
+        # Triton de capacidad/dispatch/combina. En CUDA estricto, el contrato
+        # anterior bloquea esta ruta PyTorch antes de alcanzar este punto.
+        final_hidden_states = moe_dispatch_combine_reference(
+            x_flat,
+            selected_experts,
+            topk_weights,
+            list(self.experts),
         )
-        
-        # Máscara de enrutamiento
-        expert_mask = F.one_hot(selected_experts, num_classes=self.n_experts).permute(2, 1, 0)
-        
-        for expert_idx in range(self.n_experts):
-            expert_layer = self.experts[expert_idx]
-            idx, top_x = torch.where(expert_mask[expert_idx])
-            
-            if top_x.shape[0] == 0:
-                continue
-                
-            current_state = x_flat[top_x]
-            current_hidden_states = expert_layer(current_state) * topk_weights[top_x, idx, None]
-            final_hidden_states.index_add_(0, top_x, current_hidden_states.to(x.dtype))
             
         # --- PÉRDIDA AUXILIAR CORREGIDA DE BALANCEO DE CARGA ---
         # Fracción de tokens asignados a cada experto
