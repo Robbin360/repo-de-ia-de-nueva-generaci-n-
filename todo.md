@@ -154,13 +154,13 @@
 - [ ] Implementar y validar la ruta Triton obligatoria para atención causal y routing/dispatch MoE en GPU; actualmente sólo SwiGLU está integrado
 - [x] Bloquear explícitamente el prefill CUDA cuando `require_triton` esté activo hasta disponer de un kernel causal validado en GPU
 - [x] Bloquear explícitamente el dispatch/combina MoE CUDA cuando `require_triton` esté activo hasta disponer de un kernel Triton validado
-- [ ] Documentar la capacidad de la infraestructura actual y los escenarios de escalamiento de cómputo, memoria, red y datos requeridos para Aethel
-- [ ] Documentar la topología operativa de Aethel: recursos para Sólido, Líquido, curiosidad, memoria, Sueño y servicios persistentes sin confundirlos con entrenamiento
-- [ ] Definir una topología de ejecución concurrente que separe el bucle autoregresivo del modelo de los servicios líquidos, memoria, curiosidad y Sueño
-- [ ] Definir un producto comercial inicial para Aethel, su propuesta de valor, operación, límites y criterios de lanzamiento
-- [ ] Definir una ficha técnica escalonada de Aethel con parámetros, expertos, capas, contexto, memoria y requisitos de inferencia por variante
-- [ ] Documentar el routing top-2 de Aethel Pro, incluyendo balanceo, capacidad, dispatch, combinación y contrato Triton de producción
-- [ ] Definir la ruta de Aethel desde entrenamiento autorizado hasta operación comercial persistente, con infraestructura, seguridad y criterios de promoción
+- [x] Documentar la capacidad de la infraestructura actual y los escenarios de escalamiento de cómputo, memoria, red y datos requeridos para Aethel
+- [x] Documentar la topología operativa de Aethel: recursos para Sólido, Líquido, curiosidad, memoria, Sueño y servicios persistentes sin confundirlos con entrenamiento
+- [x] Definir una topología de ejecución concurrente que separe el bucle autoregresivo del modelo de los servicios líquidos, memoria, curiosidad y Sueño
+- [x] Definir un producto comercial inicial para Aethel, su propuesta de valor, operación, límites y criterios de lanzamiento
+- [x] Definir una ficha técnica escalonada de Aethel con parámetros, expertos, capas, contexto, memoria y requisitos de inferencia por variante
+- [x] Documentar el routing top-2 de Aethel Pro, incluyendo balanceo, capacidad, dispatch, combinación y contrato Triton de producción
+- [x] Definir la ruta de Aethel desde entrenamiento autorizado hasta operación comercial persistente, con infraestructura, seguridad y criterios de promoción
 - [ ] Entrenar y evaluar un modelo propio Aethel Edge con el Dataset trazable sólo cuando exista GPU autorizada, sin usar extracción de conocimiento interno ni resultados simulados
 - [ ] Evaluar y documentar una ruta local reproducible con GPU para entrenar Aethel Seed y Edge sin depender de sesiones Kaggle
 - [x] Comparar plataformas gratuitas vigentes de GPU para el piloto Aethel, incluyendo límites de sesión, almacenamiento y persistencia de checkpoints
