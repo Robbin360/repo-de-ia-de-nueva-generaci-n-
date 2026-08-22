@@ -270,6 +270,7 @@
 - [ ] Intentar una única navegación mediante My Browser y capturar cualquier tarjeta o aviso de conexión sin continuar en navegador aislado
 - [ ] Guiar y verificar la vinculación de My Browser con este chat antes de volver a navegar
 - [x] Crear un documento integral de continuidad de Aethel para reanudar el proyecto en un nuevo chat
+- [x] Actualizar el documento de continuidad con los contratos Triton, runbook local y correcciones de transparencia posteriores
 - [ ] Confirmar que Browser Operator expuso una sesión My Browser utilizable antes de acceder a Kaggle
 - [ ] Seleccionar y registrar el acelerador Kaggle disponible para Aethel Seed según VRAM, número de GPU y compatibilidad CUDA/Triton
 - [ ] Verificar el hito de modelo funcional Seed mediante checkpoint entrenado, generación token a token, evaluación holdout bilingüe y restauración reproducible

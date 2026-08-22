@@ -3,7 +3,7 @@
 **Fecha:** 22 de agosto de 2026  
 **Autor:** Manus AI  
 **Proyecto:** `/home/ubuntu/aethel-platform`  
-**Último checkpoint consolidado:** `manus-webdev://18f74cef`  
+**Último checkpoint consolidado:** `manus-webdev://441878ee`
 **Propósito:** permitir que un nuevo chat retome el proyecto Aethel sin reconstruir contexto, sin activar entrenamiento por accidente y sin presentar resultados hipotéticos como evidencia.
 
 ---
@@ -65,12 +65,20 @@ El proyecto está en `/home/ubuntu/aethel-platform` y utiliza React 19 + Tailwin
 
 | Checkpoint | Contenido principal |
 |---|---|
-| `manus-webdev://18f74cef` | Especificaciones de infraestructura, topología concurrente, producto Workspace, variantes, routing top-2 y ruta comercial. Vitest 5/5. |
+| `manus-webdev://441878ee` | Dashboard transparente: configuración teórica marcada como tal, ausencia explícita de checkpoint/métricas Aethel y bloqueo de entrenamiento desde la interfaz. TypeScript y Vitest pasan. |
+| `manus-webdev://b4ccad4e` | Ejecutor CUDA de aceptación Triton que registra bloqueo `NOT_RUN` sin hardware y no habilita contratos. |
+| `manus-webdev://9eacabca` | Matriz de aceptación CUDA para paridad, gradientes, memoria, rendimiento, límites y rollback. |
+| `manus-webdev://e972b492` | Kernel Triton experimental de prefill causal, separado de la ruta estricta hasta validación CUDA. |
+| `manus-webdev://53ba522a` | Referencia CPU de prefill causal verificada contra SDPA. |
+| `manus-webdev://d765a95f` | Referencia determinista de capacidad MoE y overflow explícito. |
+| `manus-webdev://e2161abf` | Referencia CPU de dispatch/combina MoE y pruebas de equivalencia. |
+| `manus-webdev://0cd1a7dc` | Runbook local de GPU para Seed/Edge sin activar hardware. |
+| `manus-webdev://18f74cef` | Especificaciones de infraestructura, topología concurrente, producto Workspace, variantes, routing top-2 y ruta comercial. |
 | `manus-webdev://9fa4e583` | Lanzador Seed offline, runbook, validación de paquete/tokenizador antes de GPU y pruebas de rechazo. Sin GPU ni Kaggle. |
 | `manus-webdev://67e2dcfe` | Evaluación de plataformas gratuitas: Kaggle para piloto Seed, Colab como respaldo, ZeroGPU descartado para entrenamiento prolongado. |
 | `manus-webdev://78723e42` | Contratos estrictos que bloquean prefill CUDA y dispatch/combina MoE en ausencia de kernels Triton completos validados. |
 
-Al redactarse este documento existen cambios locales aún no encapsulados en un checkpoint nuevo: `todo.md` y `training/KAGGLE_BROWSER_SESSION_CHECK_2026-08-22.md`, junto con este documento de traspaso. Antes de entregar cambios posteriores, revisar todo el `todo.md`, ejecutar las pruebas pertinentes y guardar un checkpoint.
+Al actualizarse este documento, los cambios previos están consolidados hasta `manus-webdev://441878ee`. Antes de entregar cambios posteriores, revisar todo el `todo.md`, ejecutar las pruebas pertinentes y guardar un checkpoint.
 
 ---
 
