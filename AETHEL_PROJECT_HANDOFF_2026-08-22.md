@@ -3,7 +3,8 @@
 **Fecha:** 22 de agosto de 2026  
 **Autor:** Manus AI  
 **Proyecto:** `/home/ubuntu/aethel-platform`  
-**Último checkpoint consolidado:** `manus-webdev://3aa05046`
+**Último checkpoint consolidado antes de esta actualización documental:** `manus-webdev://dec9ee6a`
+**Última sincronización GitHub previa a esta actualización:** `2a41392` en `Robbin360/repo-de-ia-de-nueva-generaci-n-` / `main`
 **Propósito:** permitir que un nuevo chat retome el proyecto Aethel sin reconstruir contexto, conservando la historia de decisiones, sin activar entrenamiento por accidente y sin presentar resultados hipotéticos como evidencia.
 
 ---
@@ -23,6 +24,23 @@ El proyecto tiene tres realidades que deben mantenerse separadas:
 > **Regla principal del proyecto:** no se usan simulaciones como métricas, resultados de entrenamiento ni pruebas de capacidad. Cada cifra de calidad, rendimiento, consumo o benchmark debe provenir de una corrida real y conservar su artefacto verificable.
 
 La siguiente meta técnica no es Aethel Edge de 2,2 B parámetros. Es **Aethel Seed E0**, una corrida pequeña pero completamente real que pruebe la cadena: Dataset congelado → tokenizador → entrenamiento → checkpoint atómico → reanudación → evaluación de holdout en inglés y español → generación token a token. Sólo después de eso tiene sentido escalar.
+
+---
+
+## 1.1 Arquitectura canónica de lenguajes
+
+La matriz canónica actual es [`AETHEL_LANGUAGE_AND_RUNTIME_ARCHITECTURE_V1.md`](AETHEL_LANGUAGE_AND_RUNTIME_ARCHITECTURE_V1.md). Resume las fronteras entre **TypeScript/React/Node.js** (producto y transparencia), **Python/PyTorch** (datos, laboratorio y modelo de referencia), **Triton/CUDA** (kernels GPU sujetos a aceptación), **Rust** (memoria y gobierno local), y **Mojo** (inferência local futura por contrato).
+
+| Lenguaje/ruta | Estado al cierre de esta actualización |
+|---|---|
+| TypeScript/React/Node.js | Implementado en la plataforma web, sin inferencia Aethel propia. |
+| Python/PyTorch | Implementado para datos, modelo, evaluación y contratos CPU; sin corrida GPU autorizada. |
+| Triton/CUDA | Implementación parcial y referencias CPU; validación CUDA de producción pendiente. |
+| Rust | Crate de memoria implementado, compilado en release y con 4 pruebas correctas; sin despliegue 24/7. |
+| Mojo | Contrato de inferencia futuro; sin implementación o validación local. |
+| C++/CUDA C++ y C# | Sin código en `main`; rutas condicionales, no requisitos activos del núcleo. |
+
+No se debe presentar C++, C#, Mojo o CUDA como un componente operativo sólo porque aparezcan en una idea de arquitectura. La fuente de verdad sobre estas fronteras, evidencia y criterios de promoción es el documento de matriz enlazado arriba.
 
 ---
 
@@ -59,7 +77,7 @@ Esta sección registra los hitos, intentos y cambios de rumbo que explican el es
 | **Arquitectura cognitiva** | Se implementaron y probaron en CPU La Roca hashable, El Líquido versionado, curiosidad con TTL/procedencia, candidatos LoRA, admisión de replay, preflight, máquina de estados de Sueño y rollback. | Curiosidad no ejecuta acciones externas; Sueño no entrena/promueve sin autorización, evidencia y separación de holdout. |
 | **Ruta Triton** | Se añadieron referencias CPU de prefill/SDPA, capacidad y dispatch/combine MoE, un prefill Triton experimental, auditoría de brechas, matriz CUDA y ejecutor de aceptación. | Prefill y dispatch/combina estrictos siguen bloqueados hasta una validación CUDA completa; no presentar referencias CPU como kernels GPU aceptados. |
 | **My Browser/Kaggle** | El usuario pidió usar exclusivamente su navegador. Aunque el conector parecía habilitado, la sesión del agente devolvía `Browser: Sandbox`; no se expuso una sesión personal de Kaggle utilizable. | No usar Sandbox como sustituto. Detenerse ante Sandbox, login, CAPTCHA o conexión pendiente. |
-| **Estado de cierre** | El usuario pidió este archivo para pasar a otro chat. La última acción de código segura fue corregir etiquetas globales del dashboard y guardar `3aa05046`. | No se activó GPU, no se creó Dataset final, no se subieron los 22 shards, no se inició entrenamiento ni gasto. |
+| **Estado de cierre y sincronización** | Se amplió este documento, se guardó el checkpoint `dec9ee6a`, se publicó el historial local en el repositorio GitHub privado de IA y se verificó el runtime Rust local. | No se activó GPU, no se creó Dataset final, no se subieron los 22 shards, no se inició entrenamiento ni gasto. |
 
 ### Cambios de rumbo que no deben revertirse
 
@@ -90,6 +108,7 @@ El proyecto está en `/home/ubuntu/aethel-platform` y utiliza React 19 + Tailwin
 
 | Checkpoint | Contenido principal |
 |---|---|
+| `manus-webdev://dec9ee6a` | Documento de continuidad ampliado con la historia, Dataset, arquitectura cognitiva, Kaggle/My Browser, restricciones, brechas y rutas de continuación. |
 | `manus-webdev://3aa05046` | Corrección global de transparencia: encabezado con `LLM de plataforma conectado · Aethel Seed sin entrenar`, sidebar `modelo propio no iniciado`, métricas nulas y auditoría visual. No se activó GPU, Kaggle, Dataset ni entrenamiento. |
 | `manus-webdev://ed495c63` | Inspector local reproducible de código, Dataset, salida, CUDA y Triton que informa `BLOCKED` o `READY_FOR_AUTHORIZATION` sin entrenar. |
 | `manus-webdev://028b9859` | Versión anterior del documento de continuidad, ampliada y sustituida por la presente. |
@@ -106,7 +125,7 @@ El proyecto está en `/home/ubuntu/aethel-platform` y utiliza React 19 + Tailwin
 | `manus-webdev://67e2dcfe` | Evaluación de plataformas gratuitas: Kaggle para piloto Seed, Colab como respaldo, ZeroGPU descartado para entrenamiento prolongado. |
 | `manus-webdev://78723e42` | Contratos estrictos que bloquean prefill CUDA y dispatch/combina MoE en ausencia de kernels Triton completos validados. |
 
-Al actualizarse este documento, los cambios están consolidados hasta `manus-webdev://3aa05046`. Las verificaciones más recientes reportadas antes de ese checkpoint fueron `pnpm exec tsc --noEmit`, Vitest en cuatro archivos/ocho pruebas, `git diff --check` y pruebas CPU de prefill/MoE/bridge/inspector. Esta evidencia no sustituye una ejecución CUDA.
+Antes de la presente actualización, los cambios estaban consolidados hasta `manus-webdev://dec9ee6a` y sincronizados en GitHub hasta `2a41392`. La compilación local más reciente del crate Rust verificó `cargo check --locked`, `cargo build --locked --release`, 4 pruebas Rust correctas y la plantilla systemd. La evidencia de TypeScript/Vitest y pruebas CPU no sustituye una ejecución CUDA ni un despliegue persistente.
 
 ---
 
