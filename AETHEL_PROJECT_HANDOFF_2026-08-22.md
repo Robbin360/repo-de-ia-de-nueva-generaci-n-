@@ -3,8 +3,8 @@
 **Fecha:** 22 de agosto de 2026  
 **Autor:** Manus AI  
 **Proyecto:** `/home/ubuntu/aethel-platform`  
-**Último checkpoint consolidado antes de esta actualización documental:** `manus-webdev://dec9ee6a`
-**Última sincronización GitHub previa a esta actualización:** `2a41392` en `Robbin360/repo-de-ia-de-nueva-generaci-n-` / `main`
+**Último checkpoint consolidado antes de la respuesta a auditoría:** `manus-webdev://f3c18b24`
+**Última sincronización GitHub previa a la respuesta a auditoría:** `f3c18b24` en `Robbin360/repo-de-ia-de-nueva-generaci-n-` / `main`
 **Propósito:** permitir que un nuevo chat retome el proyecto Aethel sin reconstruir contexto, conservando la historia de decisiones, sin activar entrenamiento por accidente y sin presentar resultados hipotéticos como evidencia.
 
 ---
@@ -473,3 +473,13 @@ Las afirmaciones de estado de este documento se fundamentan en los archivos y ch
 [2] [Google Colab — Frequently Asked Questions](https://research.google.com/colaboratory/faq.html)  
 [3] [Hugging Face — ZeroGPU](https://huggingface.co/docs/hub/en/spaces-zerogpu)  
 [4] [NVIDIA — H100 Tensor Core GPU](https://www.nvidia.com/en-us/data-center/h100/)
+
+---
+
+## 18. Auditoría técnica externa y precisión de entorno
+
+El 22 de agosto se recibió una auditoría que confirma el veredicto prudente del proyecto: arquitectura y controles preparados, pero sin Seed GPU, benchmark, producto comercial ni aceptación Triton/CUDA demostrados. El contraste posterior documentado en `training/AETHEL_AUDIT_RESPONSE_2026-08-22.md` distingue esa inspección de un checkout que no contenía activos externos del entorno local actual, donde el paquete congelado sí está presente y validado. El paquete continúa fuera de GitHub y no se debe asumir su disponibilidad en Kaggle u otros hosts.
+
+El archivo versionado `engine/artifacts/aethel_real.pt` queda explícitamente clasificado como **histórico no certificado y no promocionable**. No debe cargarse como modelo Aethel ni usarse para justificar resultados. La clasificación estática y sus requisitos de auditoría se encuentran en `engine/artifacts/aethel_real.audit.json`.
+
+La evidencia de pruebas vigente debe comunicarse de manera desagregada: TypeScript correcto, Vitest 4 archivos/9 pruebas, contratos CPU específicos correctos, Rust compilado y probado previamente; `pytest` no se ejecutó en este host y la aceptación CUDA/Triton sigue pendiente. La nueva lista `training/requirements-test.txt` declara el entorno requerido para una futura ejecución reproducible de pytest sin afirmar que ya se haya ejecutado.

@@ -1,0 +1,32 @@
+{
+  "artifact": "engine/artifacts/aethel_real.pt",
+  "classification": "historical_unverified_non_promotable",
+  "observed_at": "2026-08-22",
+  "static_observations": {
+    "bytes": 991114,
+    "sha256": "fa423241ff0d94ea5819e9628c41d16940a4e846c5c625c030a9cbc0a9162122",
+    "container": "PyTorch ZIP serialization container",
+    "entries": 21,
+    "pickle_entry": "aethel_real/data.pkl",
+    "tensor_storage_entries": 15,
+    "encrypted": false
+  },
+  "not_established": [
+    "model configuration",
+    "training step",
+    "tokenizer compatibility",
+    "optimizer state",
+    "dataset provenance",
+    "holdout evaluation",
+    "reproducible resume eligibility",
+    "compatibility with the current Seed recipe"
+  ],
+  "load_policy": "Do not use for training, inference, promotion, benchmarks, or resume. Inspect only in a trusted isolated procedure that verifies metadata and provenance before deserialization.",
+  "promotion_requirements": [
+    "trusted checkpoint inspection report",
+    "configuration, step, tokenizer and optimizer metadata",
+    "code and Dataset hashes",
+    "separate English and Spanish holdout reports",
+    "explicit approval under the Aethel promotion gates"
+  ]
+}
