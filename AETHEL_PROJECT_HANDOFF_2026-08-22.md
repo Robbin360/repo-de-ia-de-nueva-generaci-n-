@@ -3,8 +3,8 @@
 **Fecha:** 22 de agosto de 2026  
 **Autor:** Manus AI  
 **Proyecto:** `/home/ubuntu/aethel-platform`  
-**Último checkpoint consolidado:** `manus-webdev://f4afa7da`
-**Última sincronización GitHub:** `f4afa7da` en `Robbin360/repo-de-ia-de-nueva-generaci-n-` / `main`
+**Último checkpoint consolidado:** `manus-webdev://c132ee73`
+**Última sincronización GitHub:** `c132ee73` en `Robbin360/repo-de-ia-de-nueva-generaci-n-` / `main`
 **Propósito:** permitir que un nuevo chat retome el proyecto Aethel sin reconstruir contexto, conservando la historia de decisiones, sin activar entrenamiento por accidente y sin presentar resultados hipotéticos como evidencia.
 
 ---
