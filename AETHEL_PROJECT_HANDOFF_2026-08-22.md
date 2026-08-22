@@ -3,8 +3,8 @@
 **Fecha:** 22 de agosto de 2026  
 **Autor:** Manus AI  
 **Proyecto:** `/home/ubuntu/aethel-platform`  
-**Último checkpoint consolidado:** `manus-webdev://441878ee`
-**Propósito:** permitir que un nuevo chat retome el proyecto Aethel sin reconstruir contexto, sin activar entrenamiento por accidente y sin presentar resultados hipotéticos como evidencia.
+**Último checkpoint consolidado:** `manus-webdev://3aa05046`
+**Propósito:** permitir que un nuevo chat retome el proyecto Aethel sin reconstruir contexto, conservando la historia de decisiones, sin activar entrenamiento por accidente y sin presentar resultados hipotéticos como evidencia.
 
 ---
 
@@ -44,6 +44,31 @@ No se deben inventar reseñas, testimonios, usuarios, ratings, benchmarks ni mé
 
 ---
 
+## Historia consolidada del proyecto
+
+Esta sección registra los hitos, intentos y cambios de rumbo que explican el estado actual. Las conversaciones y los logs históricos sirven de contexto operativo; no se consideran evidencia de que exista un modelo propio entrenado.
+
+| Etapa | Qué ocurrió | Decisión vigente que debe conservarse |
+|---|---|---|
+| **Origen del proyecto** | El usuario pidió localizar el repositorio de IA distinto de `katalog-ai`, entender su documentación y convertirlo en una plataforma y modelo propios. | Aethel debe respetar la arquitectura documentada: Sólido, Líquido, Sueño, curiosidad, MoE y eficiencia; no sustituirla por una demo genérica. |
+| **Arquitectura políglota** | Se auditaron los lenguajes mencionados por el usuario y repositorio: TypeScript/Node.js y React/Tailwind para interfaz, Python/PyTorch para laboratorio, Triton/CUDA para rutas GPU, Rust para memoria/gobierno persistente y Mojo como contrato de inferencia local. | No declarar que Rust 24/7, Mojo o Triton completo estén desplegados sólo porque sus contratos/documentos existen. |
+| **Primera plataforma web** | Se construyó un dashboard React/tRPC con chat persistente, arquitectura, Trainer, Benchmarks y Engine Status. | La plataforma es real, pero el chat usa el LLM integrado de plataforma y no un checkpoint Aethel. |
+| **Corrección de simulaciones** | Tras la instrucción del usuario de no usar simulaciones, se eliminaron curvas/estados engañosos, se dejaron benchmarks sin cifras, se anularon métricas sin proceso y se bloquearon mutaciones tRPC de entrenamiento desde la UI. | Sin artefacto verificable, las métricas deben quedar ausentes; no restaurar etiquetas que sugieran entrenamiento o runtime Aethel propio. |
+| **Intentos antiguos de Kaggle** | Se prepararon celdas V3/V5/V9/V10/V11 y un Dataset histórico de bundle de código `aethel-nextgen-source`. Los logs mostraron entradas sin `.gz`, copias múltiples, HTTP 429/502, mínimos ingleses no alcanzados e `IncompleteRead`. | No reconstruir ni descargar corpus durante la corrida. Estas celdas son historial de diagnóstico, no la ruta actual de Seed. |
+| **Corpus final local** | Se sustituyó la construcción remota inestable por un paquete local cerrado de 40.000 documentos Wikipedia, con BPE, hashes, holdout y validación offline. | El paquete sigue congelado y local. No se creó ni verificó el Dataset privado final `aethel-nextgen-data-v1`. |
+| **Arquitectura cognitiva** | Se implementaron y probaron en CPU La Roca hashable, El Líquido versionado, curiosidad con TTL/procedencia, candidatos LoRA, admisión de replay, preflight, máquina de estados de Sueño y rollback. | Curiosidad no ejecuta acciones externas; Sueño no entrena/promueve sin autorización, evidencia y separación de holdout. |
+| **Ruta Triton** | Se añadieron referencias CPU de prefill/SDPA, capacidad y dispatch/combine MoE, un prefill Triton experimental, auditoría de brechas, matriz CUDA y ejecutor de aceptación. | Prefill y dispatch/combina estrictos siguen bloqueados hasta una validación CUDA completa; no presentar referencias CPU como kernels GPU aceptados. |
+| **My Browser/Kaggle** | El usuario pidió usar exclusivamente su navegador. Aunque el conector parecía habilitado, la sesión del agente devolvía `Browser: Sandbox`; no se expuso una sesión personal de Kaggle utilizable. | No usar Sandbox como sustituto. Detenerse ante Sandbox, login, CAPTCHA o conexión pendiente. |
+| **Estado de cierre** | El usuario pidió este archivo para pasar a otro chat. La última acción de código segura fue corregir etiquetas globales del dashboard y guardar `3aa05046`. | No se activó GPU, no se creó Dataset final, no se subieron los 22 shards, no se inició entrenamiento ni gasto. |
+
+### Cambios de rumbo que no deben revertirse
+
+La prioridad dejó de ser construir corpus por red dentro de Kaggle y pasó a ser ejecutar **Seed offline** con un Dataset ya validado. La prioridad dejó de ser presentar una interfaz como si fuera un modelo Aethel vivo y pasó a ser declarar de forma visible cuándo sólo hay LLM de plataforma. La prioridad dejó de ser perseguir Edge/Pro inmediatamente y pasó a ser demostrar el primer checkpoint Seed reproducible. Estas decisiones responden a los fallos observados y al requisito central del usuario: datos y resultados reales, no simulaciones.
+
+> Las aprobaciones antiguas de crear celdas, subir bundles de código o explorar Kaggle no sustituyen la autorización actual para crear el Dataset final de datos, seleccionar una GPU, ejecutar Save & Run All o entrenar. Cada una de esas acciones requiere confirmación específica e inmediata.
+
+---
+
 ## 3. Restricciones vigentes que el nuevo chat debe respetar
 
 | Restricción | Interpretación operativa |
@@ -65,6 +90,9 @@ El proyecto está en `/home/ubuntu/aethel-platform` y utiliza React 19 + Tailwin
 
 | Checkpoint | Contenido principal |
 |---|---|
+| `manus-webdev://3aa05046` | Corrección global de transparencia: encabezado con `LLM de plataforma conectado · Aethel Seed sin entrenar`, sidebar `modelo propio no iniciado`, métricas nulas y auditoría visual. No se activó GPU, Kaggle, Dataset ni entrenamiento. |
+| `manus-webdev://ed495c63` | Inspector local reproducible de código, Dataset, salida, CUDA y Triton que informa `BLOCKED` o `READY_FOR_AUTHORIZATION` sin entrenar. |
+| `manus-webdev://028b9859` | Versión anterior del documento de continuidad, ampliada y sustituida por la presente. |
 | `manus-webdev://441878ee` | Dashboard transparente: configuración teórica marcada como tal, ausencia explícita de checkpoint/métricas Aethel y bloqueo de entrenamiento desde la interfaz. TypeScript y Vitest pasan. |
 | `manus-webdev://b4ccad4e` | Ejecutor CUDA de aceptación Triton que registra bloqueo `NOT_RUN` sin hardware y no habilita contratos. |
 | `manus-webdev://9eacabca` | Matriz de aceptación CUDA para paridad, gradientes, memoria, rendimiento, límites y rollback. |
@@ -78,7 +106,7 @@ El proyecto está en `/home/ubuntu/aethel-platform` y utiliza React 19 + Tailwin
 | `manus-webdev://67e2dcfe` | Evaluación de plataformas gratuitas: Kaggle para piloto Seed, Colab como respaldo, ZeroGPU descartado para entrenamiento prolongado. |
 | `manus-webdev://78723e42` | Contratos estrictos que bloquean prefill CUDA y dispatch/combina MoE en ausencia de kernels Triton completos validados. |
 
-Al actualizarse este documento, los cambios previos están consolidados hasta `manus-webdev://441878ee`. Antes de entregar cambios posteriores, revisar todo el `todo.md`, ejecutar las pruebas pertinentes y guardar un checkpoint.
+Al actualizarse este documento, los cambios están consolidados hasta `manus-webdev://3aa05046`. Las verificaciones más recientes reportadas antes de ese checkpoint fueron `pnpm exec tsc --noEmit`, Vitest en cuatro archivos/ocho pruebas, `git diff --check` y pruebas CPU de prefill/MoE/bridge/inspector. Esta evidencia no sustituye una ejecución CUDA.
 
 ---
 
@@ -88,10 +116,10 @@ La web es un dashboard oscuro de Aethel y funciona de manera independiente del e
 
 | Componente | Ruta principal | Estado |
 |---|---|---|
-| Dashboard principal | `client/src/pages/Home.tsx` | Operativo; visualiza los cinco pilares y telemetría. |
-| API tRPC | `server/routers.ts` | Guarda historial y provee procedimientos del dashboard. |
+| Dashboard principal | `client/src/pages/Home.tsx` | Operativo; visualiza pilares y sólo evidencia disponible. Encabezado: `LLM de plataforma conectado · Aethel Seed sin entrenar`. |
+| API tRPC | `server/routers.ts` | Guarda historial, informa `sin checkpoint Aethel` y rechaza iniciar entrenamiento no autorizado desde el dashboard. |
 | Layout y chat | `client/src/components/` | Chat y navegación disponibles. |
-| Pruebas web | `server/*.test.ts` | Última comprobación registrada: Vitest 5/5. |
+| Pruebas web | `server/*.test.ts` | Las pruebas de transparencia y guardia impiden etiquetas ambiguas y launches locales desde la UI. |
 
 Los paneles de benchmarks muestran la ausencia de resultados cuando no hay artefactos reales. Esa conducta debe preservarse: no llenar el dashboard con cifras de entrenamiento ficticias.
 
@@ -108,6 +136,8 @@ Los paneles de benchmarks muestran la ausencia de resultados cuando no hay artef
 | `engine/train_aethel_gpu.py` | Entrenador GPU con checkpoints, estados de optimizador y reanudación. |
 | `engine/evaluate_nextgen.py` | Evaluación de checkpoint sobre corpus retenido. |
 | `engine/export_artifacts.py` | Exportación de artefactos de corrida. |
+| `training/run_triton_cuda_acceptance.py` | Ejecutor futuro de aceptación CUDA; sin CUDA/Triton emite `NOT_RUN`, sale con código 2 y no habilita contratos. |
+| `training/inspect_local_aethel_host.py` | Inspector local sin entrenamiento de fuentes, Dataset, salida, disco, CUDA y Triton. |
 
 El modelo utiliza **RoPE** para posiciones, **GQA** para reducir coste del KV-cache y **MoE sparse top-2** para activar sólo dos expertos por token. Su eficiencia futura depende de validar la totalidad de la ruta CUDA, no sólo de implementar fallbacks CPU.
 
@@ -380,7 +410,35 @@ Si el usuario decide hacer manualmente el paso de Dataset privado, el nuevo chat
 
 ---
 
-## 15. Instrucción sugerida para abrir el siguiente chat
+## 15. Checklist de reinicio y brechas que siguen abiertas
+
+El siguiente chat debe comenzar comprobando el estado actual del repositorio, no suponiendo que los checks históricos representan una ejecución viva. Primero debe leer este archivo y los documentos obligatorios, revisar `git status`, `todo.md` y el último checkpoint. Si se modifica código, debe preservar las pruebas y actualizar los textos de transparencia. Si se solicita una GPU o Kaggle, debe separar con claridad: inspección reversible, preparación de formulario, creación de Dataset, selección de acelerador y comienzo de corrida.
+
+| Brecha pendiente | Estado y condición de avance |
+|---|---|
+| Dataset Kaggle final | El paquete local existe; `aethel-nextgen-data-v1` no está confirmado como Dataset privado final. Requiere creación manual o My Browser realmente conectado y confirmación inmediata antes de crear. |
+| Navegador personal | My Browser no fue expuesto al agente. No navegar en Sandbox bajo la condición del usuario. |
+| Host GPU | El sandbox carece de CUDA. Inspeccionar un host autorizado antes de pedir inicio de Seed. |
+| Triton de producción | Prefill y dispatch/combina MoE están incompletos para contrato estricto; ejecutar matriz CUDA y guardar informes antes de habilitar. |
+| Seed real | No hay checkpoint ni telemetría. Exige Dataset, GPU, autorizaciones, preflight, salida persistente y evaluación bilingüe. |
+| Edge/Pro/FSDP | Bloqueados por ausencia de evidencia Seed, corpus de escala superior, validación CUDA y hardware/presupuesto apropiados. |
+| Servicio Rust 24/7 | Existe preparación local y contratos; falta host persistente autorizado, supervisión y restauración real de snapshot. |
+| Runtime Mojo | Sólo contrato/documentación; no existe runtime instalado ni validado. |
+| Corpus comercial | El Dataset actual sirve para Seed; ampliar a matemática, ciencia, ingeniería y programación requiere una nueva versión trazable, no mutar la congelada. |
+
+### Acciones que no deben ejecutarse sin nueva instrucción del usuario
+
+1. No modificar, borrar, publicar ni subir el paquete congelado local.
+2. No crear, publicar o alterar un Dataset Kaggle ni pulsar `Save & Run All`.
+3. No habilitar acelerador, lanzar entrenamiento, reservar recursos, comprar infraestructura ni ejecutar una corrida continua.
+4. No usar Browser Sandbox cuando el usuario pidió My Browser; tampoco pedir al usuario credenciales por chat.
+5. No relajar guards `require_triton`, no aceptar un kernel sólo por pruebas CPU y no promover una E0 fallback.
+6. No presentar parámetros teóricos, chats de plataforma, referencias CPU o documentación como checkpoint, aprendizaje, benchmark o producto Aethel operativo.
+7. No mezclar holdout con tokenizador, entrenamiento, replay, selección de candidato o decisiones de promoción.
+
+---
+
+## 16. Instrucción sugerida para abrir el siguiente chat
 
 Copiar este texto, adjuntar este documento y el agente podrá continuar con el alcance correcto:
 
@@ -388,7 +446,7 @@ Copiar este texto, adjuntar este documento y el agente podrá continuar con el a
 
 ---
 
-## 16. Referencias internas y externas
+## 17. Referencias internas y externas
 
 Las afirmaciones de estado de este documento se fundamentan en los archivos y checkpoints del repositorio citados anteriormente. Para límites y selección de infraestructura gratuita, consultar las fuentes primarias incluidas en `training/FREE_GPU_PLATFORM_ASSESSMENT_2026-08-21.md`.
 
