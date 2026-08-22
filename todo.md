@@ -164,6 +164,8 @@
 - [ ] Entrenar y evaluar un modelo propio Aethel Edge con el Dataset trazable sólo cuando exista GPU autorizada, sin usar extracción de conocimiento interno ni resultados simulados
 - [ ] Evaluar y documentar una ruta local reproducible con GPU para entrenar Aethel Seed y Edge sin depender de sesiones Kaggle
 - [x] Comparar plataformas gratuitas vigentes de GPU para el piloto Aethel, incluyendo límites de sesión, almacenamiento y persistencia de checkpoints
+- [x] Definir el runbook operativo de Aethel Seed para Kaggle con preflight offline, checkpoints atómicos, evaluación holdout y reanudación verificada
+- [x] Alinear el lanzador Aethel Seed con `aethel-knowledge-corpus-v1-package` y probar que rechaza rutas, manifiestos o tokenizadores incompatibles antes de usar GPU
 - [x] Preparar kernels Triton de atención causal de decodificación y selección top-2 del router con equivalencia CPU y preflight CUDA explícito
 - [x] Diseñar el contrato de inferencia local token a token para un runtime Mojo
 - [ ] Desplegar y validar el servicio Rust persistente en un host autorizado con supervisión real, healthcheck y restauración automática de snapshot
