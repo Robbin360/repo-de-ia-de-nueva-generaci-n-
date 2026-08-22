@@ -98,6 +98,25 @@ def causal_decode_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, *
     return F.scaled_dot_product_attention(q, k, v, is_causal=False)
 
 
+def causal_prefill_reference(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
+    """Referencia explícita de prefill causal para el futuro kernel por bloques.
+
+    El contrato es q/k/v con forma [B, H, S, D], máscara triangular inferior
+    inclusiva y softmax estable en float. Está pensada para equivalencia CPU,
+    no para rendimiento ni como sustituto de Triton en CUDA estricto.
+    """
+    if q.ndim != 4 or k.ndim != 4 or v.ndim != 4 or q.shape != k.shape or k.shape != v.shape:
+        raise ValueError("prefill causal espera q/k/v con la misma forma [B,H,S,D]")
+    _, _, sequence_length, head_dim = q.shape
+    scores = torch.matmul(q.float(), k.float().transpose(-2, -1)) * (head_dim ** -0.5)
+    causal_mask = torch.ones(
+        (sequence_length, sequence_length), dtype=torch.bool, device=q.device
+    ).tril()
+    scores = scores.masked_fill(~causal_mask, float("-inf"))
+    weights = torch.softmax(scores, dim=-1)
+    return torch.matmul(weights, v.float()).to(q.dtype)
+
+
 def top2_router(logits: torch.Tensor, *, require_triton: bool = False) -> tuple[torch.Tensor, torch.Tensor]:
     """Selecciona y normaliza los dos expertos mejores durante inferencia."""
     if logits.ndim != 2 or logits.shape[1] < 2:

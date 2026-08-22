@@ -10,7 +10,7 @@
 | SwiGLU | Kernel Triton `_swiglu_kernel` y fallback PyTorch. | `require_triton` rechaza el fallback en modo estricto. | Falta prueba numérica/rendimiento CUDA por configuración representativa. |
 | Decode causal | Kernel `_causal_decode_kernel` para un token contra KV-cache, con límites de secuencia y head dimension. | `causal_decode_attention` rechaza fallback estricto. | Falta equivalencia CUDA y no cubre prefill por bloques. |
 | Router top-2 | Kernel `_top2_router_kernel` para seleccionar y normalizar dos expertos. | `top2_router` rechaza fallback estricto. | Falta validación CUDA de índices/gates y no hace dispatch ni combinación. |
-| Prefill causal | Usa `scaled_dot_product_attention` fuera de decode. | `enforce_triton_prefill_contract` bloquea prefill CUDA con `require_triton=True`. | Falta kernel Triton causal por bloques validado. |
+| Prefill causal | Referencia CPU causal explícita y equivalencia contra SDPA. | `enforce_triton_prefill_contract` bloquea prefill CUDA con `require_triton=True`. | Falta kernel Triton causal por bloques validado. |
 | Dispatch/combina MoE | Referencias CPU de capacidad determinista y combinación por experto con gates. | `enforce_triton_moe_dispatch_contract` bloquea CUDA estricta. | Falta pipeline Triton de capacidad, agrupación, dispatch, expert compute y combine. |
 
 ## Invariantes que deben preservarse
@@ -21,8 +21,8 @@ El modo `require_triton=True` debe seguir fallando de forma explícita, en vez d
 
 ## Referencia ejecutable incorporada
 
-Se incorporó `moe_dispatch_combine_reference()` en `engine/triton_bridge.py` y el modelo la usa como referencia semántica de su loop de expertos. La ruta preserva agrupación por experto, acumulación con `index_add`, gates por token/slot, expertos sin tokens y gradientes de tokens/gates.
+Se incorporaron `causal_prefill_reference()` y `moe_dispatch_combine_reference()` en `engine/triton_bridge.py`. La primera conserva máscara triangular inclusiva y coincide con SDPA causal en CPU. La segunda preserva agrupación por experto, acumulación con `index_add`, gates por token/slot, expertos sin tokens y gradientes de tokens/gates.
 
-`engine/test_moe_dispatch_reference.py` cubre equivalencia frente a la ruta legacy, experto vacío, combinación ponderada, gradientes, rechazo de índices fuera de rango y capacidad token-major/slot-major con overflow explícito. La ejecución CPU posterior a esta incorporación pasó junto a `test_triton_bridge.py`, `test_model_budget.py` y Vitest 5/5; no valida CUDA.
+`engine/test_moe_dispatch_reference.py` cubre equivalencia frente a la ruta legacy, experto vacío, combinación ponderada, gradientes, rechazo de índices fuera de rango y capacidad token-major/slot-major con overflow explícito. `engine/test_triton_prefill_reference.py` cubre equivalencia contra SDPA causal, bloqueo de futuros tokens y errores de forma. La validación CPU no valida CUDA.
 
 > Esta evidencia define el contrato del futuro kernel de dispatch/combina; no valida CUDA ni reduce la brecha de producción descrita en la tabla.
