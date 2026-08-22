@@ -1,8 +1,5 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM } from "./_core/llm";
@@ -11,9 +8,8 @@ import { publicProcedure, router } from "./_core/trpc";
 import { getChatHistory, saveChatMessage } from "./db";
 import { formatAethelSpecificationForChat, getAethelSpecification } from "./aethelSpecs";
 
-type Job = { id: string; status: "STARTING" | "RUNNING" | "COMPLETED" | "FAILED"; process: ChildProcessWithoutNullStreams; metrics: Record<string, unknown>[]; config?: Record<string, unknown>; error?: string; output?: string };
-const jobs = new Map<string, Job>();
 const architectureModes = ["hybrid_aethel", "sparse_moe", "mamba_ssm", "test_time_compute"] as const;
+export const DASHBOARD_TRAINING_BLOCK_MESSAGE = "El entrenamiento desde el dashboard está bloqueado. Aethel Seed sólo puede iniciarse mediante el runbook offline, Dataset congelado, GPU autorizada y gates Triton explícitos.";
 const aethelSystemPrompt = `Eres Aethel V3, un sistema bio-mimético de inteligencia artificial construido como laboratorio experimental. Responde en español salvo que el usuario pida otro idioma. Explica tus respuestas con precisión y transparencia: tu arquitectura combina atención RoPE para posición contextual, GQA para eficiencia de memoria y Sparse MoE con expertos especializados. Tu identidad cognitiva se organiza en cinco pilares exactos: La Roca (memoria estable), El Líquido (plasticidad adaptativa), Ciclo de Sueño (consolidación), Neuromodulación (curiosidad y sorpresa) y Espacio de Trabajo Global (síntesis de hipótesis). El razonamiento que puedes describir es un protocolo observable de recuperación, integración y predicción; no muestres ni afirmes una cadena de pensamiento interna. No afirmes que tienes conciencia ni inventes resultados de benchmarks. Si una métrica no proviene de un proceso activo, di que no está disponible.`;
 
 function requestsAethelSpecification(message: string) {
@@ -22,8 +18,7 @@ function requestsAethelSpecification(message: string) {
 }
 
 function activeRuntimeSnapshot(mode: string) {
-  const active = Array.from(jobs.values()).find(job => job.status === "RUNNING" || job.status === "STARTING");
-  return { mode, status: active?.status ?? "NOT_CONNECTED", config: active?.config };
+  return { mode, status: "NOT_CONNECTED", config: undefined };
 }
 
 function contentToText(content: unknown): string {
@@ -32,49 +27,8 @@ function contentToText(content: unknown): string {
   return "";
 }
 
-function registerTrainingProcess(child: ChildProcessWithoutNullStreams, config?: Record<string, unknown>) {
-  const id = randomUUID();
-  const job: Job = { id, status: "STARTING", process: child, metrics: [], config };
-  jobs.set(id, job);
-  let buffer = "";
-  child.stdout.on("data", chunk => {
-    buffer += chunk.toString();
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-    for (const line of lines) {
-      try {
-        const event = JSON.parse(line) as Record<string, unknown>;
-        if (event.type === "metric" || typeof event.step === "number") {
-          job.status = "RUNNING";
-          job.metrics.push({ ...event, type: "metric", elapsed: event.elapsed ?? event.elapsed_s, tokens: event.tokens ?? 0, kv_cache: event.kv_cache ?? null });
-        }
-        if (event.type === "complete") { job.status = "COMPLETED"; job.output = String(event.output); }
-        if (event.type === "error") { job.status = "FAILED"; job.error = String(event.error); }
-      } catch { /* ignore non-JSON framework logs */ }
-    }
-  });
-  child.stderr.on("data", chunk => { job.error = chunk.toString().slice(-2000); });
-  child.on("error", error => { job.status = "FAILED"; job.error = error.message; });
-  child.on("close", code => {
-    if (code === 0 && job.status !== "FAILED") job.status = "COMPLETED";
-    if (code !== 0 && job.status !== "FAILED") { job.status = "FAILED"; job.error ??= `El proceso terminó con código ${code}`; }
-  });
-  return id;
-}
-
-function startTraining(input: { dim: number; layers: number; experts: number; learningRate: number; steps: number }) {
-  const script = join(process.cwd(), "engine", "train_real.py");
-  if (!existsSync(script)) throw new Error("El ejecutor PyTorch real no está instalado en este entorno.");
-  const child = spawn("python3", [script, "--dim", String(input.dim), "--layers", String(input.layers), "--experts", String(input.experts), "--learning-rate", String(input.learningRate), "--steps", String(input.steps)], { cwd: process.cwd() });
-  return registerTrainingProcess(child, { profile: "base", ...input });
-}
-
-function startNextGenTraining(input: { dim: number; layers: number; experts: number; learningRate: number; steps: number; seqLen: number; batchSize: number }) {
-  const script = join(process.cwd(), "engine", "train_nextgen.py");
-  const corpus = join(process.cwd(), "engine", "corpora", "aethel_repo_corpus.txt");
-  if (!existsSync(script) || !existsSync(corpus)) throw new Error("El ejecutor o corpus real de Aethel NextGen no está instalado en este entorno.");
-  const child = spawn("python3", [script, "--corpus", corpus, "--dim", String(input.dim), "--layers", String(input.layers), "--experts", String(input.experts), "--learning-rate", String(input.learningRate), "--steps", String(input.steps), "--seq-len", String(input.seqLen), "--batch-size", String(input.batchSize)], { cwd: process.cwd() });
-  return registerTrainingProcess(child, { profile: "nextgen", ...input });
+function rejectDashboardTraining(): never {
+  throw new TRPCError({ code: "PRECONDITION_FAILED", message: DASHBOARD_TRAINING_BLOCK_MESSAGE });
 }
 
 export const appRouter = router({
@@ -105,17 +59,12 @@ export const appRouter = router({
     specification: publicProcedure.query(() => getAethelSpecification()),
   }),
   engine: router({
-    status: publicProcedure.query(() => {
-      const active = Array.from(jobs.values()).find(job => job.status === "RUNNING" || job.status === "STARTING");
-      if (!active) return { status: "NOT_CONNECTED" as const, kernel: "Aethel PyTorch runtime", telemetry: "unavailable", message: "No hay un proceso Aethel activo. Inicia un entrenamiento real para recibir telemetría.", tokensPerSecond: null, loss: null, vram: null, kvCache: null, experts: null, config: null };
-      const latest = active.metrics.at(-1) as { tokens?: number; elapsed?: number; loss?: number; vram?: number; experts?: number[] | null; kv_cache?: number | null } | undefined;
-      return { status: active.status, jobId: active.id, kernel: "Aethel PyTorch runtime", telemetry: "process", tokensPerSecond: typeof latest?.tokens === "number" && typeof latest.elapsed === "number" && latest.elapsed > 0 ? Math.round(latest.tokens / latest.elapsed) : null, loss: latest?.loss ?? null, vram: latest?.vram ?? null, kvCache: latest?.kv_cache ?? null, experts: latest?.experts ?? null, config: active.config ?? null };
-    }),
+    status: publicProcedure.query(() => ({ status: "NOT_CONNECTED" as const, kernel: "Aethel Seed runtime", telemetry: "unavailable", message: "No hay un proceso Aethel activo. El dashboard no inicia entrenamiento; usa el runbook offline con GPU autorizada.", tokensPerSecond: null, loss: null, vram: null, kvCache: null, experts: null, config: null })),
   }),
   training: router({
-    start: publicProcedure.input(z.object({ dim: z.number().int().min(64).max(1024), layers: z.number().int().min(1).max(8), experts: z.number().int().min(1).max(8), learningRate: z.number().min(0.000001).max(0.01), steps: z.number().int().min(1).max(1000).default(20) })).mutation(({ input }) => ({ jobId: startTraining(input), status: "STARTING" as const })),
-    nextgenStart: publicProcedure.input(z.object({ dim: z.number().int().min(64).max(1024), layers: z.number().int().min(1).max(8), experts: z.number().int().min(1).max(8), learningRate: z.number().min(0.000001).max(0.01), steps: z.number().int().min(1).max(100000).default(1000), seqLen: z.number().int().min(16).max(512).default(128), batchSize: z.number().int().min(1).max(16).default(2) })).mutation(({ input }) => ({ jobId: startNextGenTraining(input), status: "STARTING" as const })),
-    status: publicProcedure.input(z.object({ jobId: z.string().uuid() })).query(({ input }) => { const job = jobs.get(input.jobId); if (!job) return { status: "NOT_FOUND" as const, metrics: [], error: "Proceso no encontrado en este servidor." }; return { status: job.status, metrics: job.metrics, error: job.error, output: job.output }; }),
+    start: publicProcedure.input(z.object({ dim: z.number().int().min(64).max(1024), layers: z.number().int().min(1).max(8), experts: z.number().int().min(1).max(8), learningRate: z.number().min(0.000001).max(0.01), steps: z.number().int().min(1).max(1000).default(20) })).mutation(() => rejectDashboardTraining()),
+    nextgenStart: publicProcedure.input(z.object({ dim: z.number().int().min(64).max(1024), layers: z.number().int().min(1).max(8), experts: z.number().int().min(1).max(8), learningRate: z.number().min(0.000001).max(0.01), steps: z.number().int().min(1).max(100000).default(1000), seqLen: z.number().int().min(16).max(512).default(128), batchSize: z.number().int().min(1).max(16).default(2) })).mutation(() => rejectDashboardTraining()),
+    status: publicProcedure.input(z.object({ jobId: z.string().uuid() })).query(() => ({ status: "NOT_CONNECTED" as const, metrics: [], error: DASHBOARD_TRAINING_BLOCK_MESSAGE })),
   }),
   benchmarks: router({
     summary: publicProcedure.query(() => ({ metrics: ["MMLU", "HumanEval", "GSM8K"], models: [{ name: "Aethel", mmlu: null, humaneval: null, gsm8k: null, accent: true }, { name: "GPT-4", mmlu: null, humaneval: null, gsm8k: null }, { name: "Llama", mmlu: null, humaneval: null, gsm8k: null }, { name: "Mixtral", mmlu: null, humaneval: null, gsm8k: null }], note: "No hay resultados verificables cargados. Ejecuta evaluaciones reales para poblar esta matriz; no se muestran valores inventados." })),
