@@ -296,3 +296,4 @@
 - [x] Verificar la compilación y las pruebas del runtime Rust versionado de Aethel
 - [x] Actualizar en GitHub la documentación de estado y la matriz de lenguajes, responsabilidades y componentes de Aethel
 - [x] Contrastar la auditoría técnica aportada, aclarar artefactos no certificados y reforzar el estado verificable en la documentación de Aethel
+- [x] Inventariar los archivos locales de Aethel, su relación con GitHub y las acciones permitidas para preservarlos

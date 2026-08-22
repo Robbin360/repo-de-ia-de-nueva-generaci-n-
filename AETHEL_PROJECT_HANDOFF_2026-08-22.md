@@ -483,3 +483,11 @@ El 22 de agosto se recibió una auditoría que confirma el veredicto prudente de
 El archivo versionado `engine/artifacts/aethel_real.pt` queda explícitamente clasificado como **histórico no certificado y no promocionable**. No debe cargarse como modelo Aethel ni usarse para justificar resultados. La clasificación estática y sus requisitos de auditoría se encuentran en `engine/artifacts/aethel_real.audit.json`.
 
 La evidencia de pruebas vigente debe comunicarse de manera desagregada: TypeScript correcto, Vitest 4 archivos/9 pruebas, contratos CPU específicos correctos, Rust compilado y probado previamente; `pytest` no se ejecutó en este host y la aceptación CUDA/Triton sigue pendiente. La nueva lista `training/requirements-test.txt` declara el entorno requerido para una futura ejecución reproducible de pytest sin afirmar que ya se haya ejecutado.
+
+---
+
+## 19. Activos que permanecen sólo en la máquina
+
+El inventario completo está en `training/AETHEL_LOCAL_ASSET_INVENTORY_2026-08-22.md`. La distinción crítica es que GitHub contiene código y documentación, mientras el Dataset congelado de 22 shards sigue solamente bajo `/home/ubuntu/aethel-knowledge-corpus-v1-package/`. También existen dos artefactos experimentales CPU externos en `/home/ubuntu/aethel-artifacts/`, ambos de paso 100; son evidencia local acotada, no Seed certificado, no holdout bilingüe ni modelo promocionable.
+
+No se deben borrar ni publicar esos activos por defecto. Antes de moverlos se requiere destino privado, manifiesto, hashes, ACL y verificación de copia. `node_modules`, `runtime/aethel-memory-rust/target` y `.manus-logs` son dependencias, productos de compilación o logs regenerables de esta máquina, no activos de modelo que deban preservarse como fuente de verdad.
