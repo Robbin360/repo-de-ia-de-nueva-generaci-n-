@@ -18,4 +18,12 @@ describe("dashboard transparency", () => {
     expect(homeSource).not.toContain("Iniciar Aethel NextGen");
     expect(homeSource).not.toContain("TRAINING LOSS / REAL PROCESS");
   });
+
+  it("does not present the platform LLM or a standby service as a trained Aethel runtime", () => {
+    expect(homeSource).toContain("LLM de plataforma conectado · Aethel Seed sin entrenar");
+    expect(homeSource).toContain("modelo propio no iniciado");
+    expect(homeSource).toContain("No se muestran valores cero como métricas");
+    expect(homeSource).not.toContain("LLM real conectado · runtime bajo demanda");
+    expect(homeSource).not.toContain("runtime standby");
+  });
 });

@@ -59,7 +59,7 @@ export const appRouter = router({
     specification: publicProcedure.query(() => getAethelSpecification()),
   }),
   engine: router({
-    status: publicProcedure.query(() => ({ status: "NOT_CONNECTED" as const, kernel: "Aethel Seed runtime", telemetry: "unavailable", message: "No hay un proceso Aethel activo. El dashboard no inicia entrenamiento; usa el runbook offline con GPU autorizada.", tokensPerSecond: null, loss: null, vram: null, kvCache: null, experts: null, config: null })),
+    status: publicProcedure.query(() => ({ status: "NOT_CONNECTED" as const, kernel: "sin checkpoint Aethel", telemetry: "unavailable", message: "No hay un proceso Aethel activo. El dashboard no inicia entrenamiento; usa el runbook offline con GPU autorizada.", tokensPerSecond: null, loss: null, vram: null, kvCache: null, experts: null, config: null })),
   }),
   training: router({
     start: publicProcedure.input(z.object({ dim: z.number().int().min(64).max(1024), layers: z.number().int().min(1).max(8), experts: z.number().int().min(1).max(8), learningRate: z.number().min(0.000001).max(0.01), steps: z.number().int().min(1).max(1000).default(20) })).mutation(() => rejectDashboardTraining()),

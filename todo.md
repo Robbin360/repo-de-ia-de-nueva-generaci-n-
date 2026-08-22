@@ -158,6 +158,7 @@
 - [x] Implementar el kernel Triton experimental de prefill causal y dejarlo bloqueado hasta validación numérica CUDA
 - [x] Definir la matriz de aceptación CUDA para equivalencia, gradientes, memoria, rendimiento y límites de los kernels Triton experimentales
 - [x] Auditar y corregir etiquetas del dashboard que puedan confundir configuraciones calculadas con entrenamiento o métricas reales
+- [x] Corregir la etiqueta global de runtime que aún puede implicar que Aethel está ejecutando un modelo propio entrenado
 - [x] Añadir una prueba de texto que verifique que la interfaz declara configuración teórica, ausencia de checkpoint y bloqueo de entrenamiento
 - [x] Persistir y verificar la matriz CUDA, enlazarla con la auditoría Triton y mantener los bloqueos estrictos hasta evidencia GPU
 - [x] Implementar un ejecutor CUDA de aceptación que registre entorno, paridad y límites de los kernels experimentales sin habilitarlos automáticamente

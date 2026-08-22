@@ -14,3 +14,5 @@ La interfaz web no puede hacer que una configuración calculada, una conversaci�
 | Mutaciones tRPC que iniciaban procesos locales | `training.start` y `training.nextgenStart` devuelven `PRECONDITION_FAILED`; no hacen `spawn`. | `server/routers.ts` y `server/training.guard.test.ts`. |
 
 La prueba `server/dashboard.transparency.test.ts` verifica literalmente los avisos de configuración teórica, ausencia de checkpoint, ausencia de telemetría propia y la eliminación del botón que afirmaba iniciar Aethel. Esta prueba complementa la guarda de servidor; no sustituye la futura integración de artefactos reales de Seed.
+
+**Verificación visual posterior:** la captura de la página principal confirma las etiquetas `LLM de plataforma conectado · Aethel Seed sin entrenar`, `sin checkpoint Aethel`, `Piloto teórico` y `MODELO PROPIO NO INICIADO`. La interfaz no muestra pérdida, tokens/s, VRAM ni benchmarks como valores existentes.
