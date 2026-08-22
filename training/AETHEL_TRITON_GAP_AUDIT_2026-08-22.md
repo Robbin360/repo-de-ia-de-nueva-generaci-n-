@@ -27,4 +27,6 @@ Se incorporaron `causal_prefill_reference()`, `causal_prefill_experimental()` y 
 
 **Evidencia local del 22 de agosto de 2026:** `python3 engine/test_triton_prefill_reference.py`, `python3 engine/test_moe_dispatch_reference.py`, `python3 engine/test_triton_bridge.py` y `python3 engine/test_model_budget.py` pasaron en CPU. La búsqueda de `Attention.forward` confirmó que conserva `enforce_triton_prefill_contract` y que sólo llama SDPA en la ruta no estricta. `pnpm test` pasó 5/5. Ninguna de estas comprobaciones ejecutó Triton/CUDA.
 
+La matriz obligatoria para pasar de estado experimental a una propuesta de habilitación está persistida en `training/AETHEL_TRITON_CUDA_ACCEPTANCE_MATRIX_V1.md`. Exige evidencia de entorno, paridad, causalidad, gradientes o etiqueta `inference_only`, memoria, rendimiento, límites y rollback para prefill; y de router, capacidad, dispatch, combinación, balance y gradientes para MoE. Hasta que esos artefactos CUDA existan, ambas rutas continúan bloqueadas en modo estricto.
+
 > Esta evidencia define el contrato del futuro kernel de dispatch/combina; no valida CUDA ni reduce la brecha de producción descrita en la tabla.
