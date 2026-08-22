@@ -303,3 +303,4 @@
 - [x] Verificar y documentar que GitHub contiene los insumos seguros para que otro chat continúe Dataset y E0 sin acciones de Kaggle desde esta sesión
 - [x] Retirar del repositorio GitHub los artefactos compilados Rust regenerables y excluirlos de futuras sincronizaciones
 - [x] Inventariar y sincronizar en GitHub todos los scripts, manifiestos, validadores y metadatos seguros locales necesarios para reproducir el proceso Aethel
+- [x] Redactar la directiva de continuidad para Dataset privado y E0, con objetivos, parámetros, límites y ruta Seed–Edge–Pro
