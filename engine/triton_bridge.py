@@ -157,3 +157,40 @@ def moe_dispatch_combine_reference(
         contribution = expert_output * gates[token_indices, slots].unsqueeze(-1).to(expert_output.dtype)
         output = output.index_add(0, token_indices, contribution.to(output.dtype))
     return output
+
+
+def moe_capacity_reference(
+    selected_experts: torch.Tensor,
+    *,
+    n_experts: int,
+    capacity: int,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Define el packing determinista de capacidad para un dispatch MoE futuro.
+
+    Devuelve `positions`, `accepted` y `loads`. El orden de admisión es
+    token-major y, dentro del token, slot-major; cualquier asignación que
+    exceda la capacidad del experto queda con posición -1 y `accepted=False`.
+    Es una referencia CPU de metadatos, no un kernel de producción.
+    """
+    if selected_experts.ndim != 2 or selected_experts.dtype != torch.long:
+        raise ValueError("capacity MoE espera índices [tokens, top_k] torch.long")
+    if n_experts < 1 or capacity < 1:
+        raise ValueError("n_experts y capacity deben ser positivos")
+    if selected_experts.numel() and (
+        selected_experts.min().item() < 0 or selected_experts.max().item() >= n_experts
+    ):
+        raise ValueError("índice de experto fuera del rango de capacidad")
+
+    positions = torch.full_like(selected_experts, -1)
+    accepted = torch.zeros_like(selected_experts, dtype=torch.bool)
+    loads = torch.zeros((n_experts,), dtype=torch.long, device=selected_experts.device)
+    for flat_index, expert_index in enumerate(selected_experts.reshape(-1).tolist()):
+        current_load = int(loads[expert_index])
+        if current_load >= capacity:
+            continue
+        token_index = flat_index // selected_experts.shape[1]
+        slot_index = flat_index % selected_experts.shape[1]
+        positions[token_index, slot_index] = current_load
+        accepted[token_index, slot_index] = True
+        loads[expert_index] += 1
+    return positions, accepted, loads

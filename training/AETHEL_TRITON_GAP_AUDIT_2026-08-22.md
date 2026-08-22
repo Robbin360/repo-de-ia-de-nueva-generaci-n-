@@ -11,7 +11,7 @@
 | Decode causal | Kernel `_causal_decode_kernel` para un token contra KV-cache, con límites de secuencia y head dimension. | `causal_decode_attention` rechaza fallback estricto. | Falta equivalencia CUDA y no cubre prefill por bloques. |
 | Router top-2 | Kernel `_top2_router_kernel` para seleccionar y normalizar dos expertos. | `top2_router` rechaza fallback estricto. | Falta validación CUDA de índices/gates y no hace dispatch ni combinación. |
 | Prefill causal | Usa `scaled_dot_product_attention` fuera de decode. | `enforce_triton_prefill_contract` bloquea prefill CUDA con `require_triton=True`. | Falta kernel Triton causal por bloques validado. |
-| Dispatch/combina MoE | Loop PyTorch por experto con `where`, proyección y `index_add_`. | `enforce_triton_moe_dispatch_contract` bloquea CUDA estricta. | Falta pipeline Triton de capacidad, agrupación, dispatch, expert compute y combine. |
+| Dispatch/combina MoE | Referencias CPU de capacidad determinista y combinación por experto con gates. | `enforce_triton_moe_dispatch_contract` bloquea CUDA estricta. | Falta pipeline Triton de capacidad, agrupación, dispatch, expert compute y combine. |
 
 ## Invariantes que deben preservarse
 
@@ -23,6 +23,6 @@ El modo `require_triton=True` debe seguir fallando de forma explícita, en vez d
 
 Se incorporó `moe_dispatch_combine_reference()` en `engine/triton_bridge.py` y el modelo la usa como referencia semántica de su loop de expertos. La ruta preserva agrupación por experto, acumulación con `index_add`, gates por token/slot, expertos sin tokens y gradientes de tokens/gates.
 
-`engine/test_moe_dispatch_reference.py` cubre equivalencia frente a la ruta legacy, experto vacío, combinación ponderada, gradientes y rechazo de índices fuera de rango. La ejecución CPU del 22 de agosto pasó junto a `test_model_budget.py`, `test_triton_bridge.py` y Vitest 5/5.
+`engine/test_moe_dispatch_reference.py` cubre equivalencia frente a la ruta legacy, experto vacío, combinación ponderada, gradientes, rechazo de índices fuera de rango y capacidad token-major/slot-major con overflow explícito. La ejecución CPU posterior a esta incorporación pasó junto a `test_triton_bridge.py`, `test_model_budget.py` y Vitest 5/5; no valida CUDA.
 
 > Esta evidencia define el contrato del futuro kernel de dispatch/combina; no valida CUDA ni reduce la brecha de producción descrita en la tabla.

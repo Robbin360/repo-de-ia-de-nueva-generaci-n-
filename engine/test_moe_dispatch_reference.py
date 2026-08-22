@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import torch
 
-from triton_bridge import moe_dispatch_combine_reference
+from triton_bridge import moe_capacity_reference, moe_dispatch_combine_reference
 
 
 def legacy_dispatch(tokens, selected_experts, gates, experts):
@@ -59,8 +59,27 @@ def test_rejects_invalid_routing_contracts() -> None:
         raise AssertionError("un índice fuera de rango debe bloquearse")
 
 
+def test_capacity_reference_is_token_slot_deterministic_and_reports_overflow() -> None:
+    selected = torch.tensor([[0, 1], [0, 0], [1, 0]], dtype=torch.long)
+    positions, accepted, loads = moe_capacity_reference(selected, n_experts=2, capacity=2)
+    assert torch.equal(positions, torch.tensor([[0, 0], [1, -1], [1, -1]]))
+    assert torch.equal(accepted, torch.tensor([[True, True], [True, False], [True, False]]))
+    assert torch.equal(loads, torch.tensor([2, 2]))
+
+
+def test_capacity_reference_rejects_invalid_expert_index() -> None:
+    try:
+        moe_capacity_reference(torch.tensor([[2]], dtype=torch.long), n_experts=2, capacity=1)
+    except ValueError as error:
+        assert "rango" in str(error)
+    else:
+        raise AssertionError("la capacidad debe rechazar índices de expertos inválidos")
+
+
 if __name__ == "__main__":
     test_matches_legacy_route_and_preserves_gate_combination()
     test_ignores_empty_expert_and_keeps_gradients()
     test_rejects_invalid_routing_contracts()
+    test_capacity_reference_is_token_slot_deterministic_and_reports_overflow()
+    test_capacity_reference_rejects_invalid_expert_index()
     print("PASS: referencia CPU de dispatch/combina MoE verificada")
