@@ -251,6 +251,17 @@
 - [x] Validar procedencia, licencias, idioma, deduplicación, balance de dominios y separación de holdout antes de cualquier entrenamiento
 - [x] Empaquetar y versionar localmente el Dataset de datos independiente del bundle de código de Aethel
 - [ ] Publicar el paquete validado como Dataset privado de Kaggle `aethel-nextgen-data-v1` sin iniciar una sesión GPU
+- [ ] Guiar la creación y verificación del Dataset privado de Kaggle con los 22 shards congelados, sin activar GPU ni entrenamiento
+- [ ] Verificar la sesión Kaggle del usuario en navegador y preparar el formulario privado del Dataset antes de solicitar confirmación de creación
+- [ ] Vincular la sesión personal de navegador del usuario a Kaggle antes de realizar acciones en su cuenta
+- [ ] Usar exclusivamente My Browser para Kaggle y detenerse ante falta de conexión, login o CAPTCHA sin cambiar a navegador aislado
+- [ ] Confirmar que una navegación de prueba abre una pestaña en My Browser del usuario antes de acceder a Kaggle
+- [ ] Intentar una única navegación mediante My Browser y capturar cualquier tarjeta o aviso de conexión sin continuar en navegador aislado
+- [ ] Guiar y verificar la vinculación de My Browser con este chat antes de volver a navegar
+- [x] Crear un documento integral de continuidad de Aethel para reanudar el proyecto en un nuevo chat
+- [ ] Confirmar que Browser Operator expuso una sesión My Browser utilizable antes de acceder a Kaggle
+- [ ] Seleccionar y registrar el acelerador Kaggle disponible para Aethel Seed según VRAM, número de GPU y compatibilidad CUDA/Triton
+- [ ] Verificar el hito de modelo funcional Seed mediante checkpoint entrenado, generación token a token, evaluación holdout bilingüe y restauración reproducible
 - [x] Mantener local el paquete de Dataset validado y suspender su publicación en Kaggle por decisión del usuario
 - [x] Auditar el estado actual de La Roca, El Líquido, Ciclo de Sueño, neuromodulación, memoria y espacio de trabajo global
 - [x] Especificar el ciclo operativo y los contratos de seguridad entre los módulos sólido, líquido y sueño
