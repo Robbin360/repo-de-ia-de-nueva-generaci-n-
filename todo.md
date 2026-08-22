@@ -300,3 +300,5 @@
 - [x] Revisar si la auditoría del otro chat comprendió la visión, el contenido y las restricciones verificables de Aethel
 - [x] Redactar directivas corregidas para el otro chat sobre los cinco pilares, la meta bilingüe, respaldos locales y Kaggle/My Browser
 - [x] Auditar y sincronizar únicamente archivos locales aptos para la preparación de Dataset privado y E0, manteniendo datos y pesos fuera de GitHub
+- [x] Verificar y documentar que GitHub contiene los insumos seguros para que otro chat continúe Dataset y E0 sin acciones de Kaggle desde esta sesión
+- [x] Retirar del repositorio GitHub los artefactos compilados Rust regenerables y excluirlos de futuras sincronizaciones
