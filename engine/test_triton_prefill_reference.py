@@ -4,7 +4,7 @@ from __future__ import annotations
 import torch
 import torch.nn.functional as F
 
-from triton_bridge import causal_prefill_reference
+from triton_bridge import causal_prefill_experimental, causal_prefill_reference
 
 
 def test_prefill_reference_matches_sdpa() -> None:
@@ -36,8 +36,30 @@ def test_prefill_reference_rejects_incompatible_shapes() -> None:
         raise AssertionError("prefill debe rechazar shapes incompatibles")
 
 
+def test_experimental_prefill_uses_cpu_reference_semantics_without_cuda() -> None:
+    torch.manual_seed(29)
+    q = torch.randn((1, 2, 5, 8))
+    k = torch.randn((1, 2, 5, 8))
+    v = torch.randn((1, 2, 5, 8))
+    actual = causal_prefill_experimental(q, k, v)
+    expected = causal_prefill_reference(q, k, v)
+    assert torch.allclose(actual, expected, rtol=1e-5, atol=1e-6)
+
+
+def test_experimental_prefill_keeps_strict_cuda_contract() -> None:
+    q = torch.ones((1, 1, 2, 2))
+    try:
+        causal_prefill_experimental(q, q, q, require_triton=True)
+    except RuntimeError as error:
+        assert "Triton y CUDA" in str(error)
+    else:
+        raise AssertionError("el prefill experimental no puede relajar el contrato estricto")
+
+
 if __name__ == "__main__":
     test_prefill_reference_matches_sdpa()
     test_prefill_reference_blocks_future_tokens()
     test_prefill_reference_rejects_incompatible_shapes()
+    test_experimental_prefill_uses_cpu_reference_semantics_without_cuda()
+    test_experimental_prefill_keeps_strict_cuda_contract()
     print("PASS: referencia CPU de prefill causal verificada")

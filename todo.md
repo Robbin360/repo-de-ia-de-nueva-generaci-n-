@@ -155,6 +155,7 @@
 - [x] Añadir una referencia CPU explícita de dispatch/combina MoE y pruebas de equivalencia para definir el contrato del futuro kernel Triton
 - [x] Añadir una referencia CPU determinista de capacidad MoE para especificar asignaciones aceptadas y overflow antes del kernel Triton
 - [x] Añadir una referencia CPU de prefill causal con pruebas de equivalencia SDPA antes del futuro kernel Triton por bloques
+- [x] Implementar el kernel Triton experimental de prefill causal y dejarlo bloqueado hasta validación numérica CUDA
 - [x] Auditar las rutas actuales de atención causal y dispatch/combina MoE frente a los contratos Triton antes de completar kernels GPU
 - [x] Bloquear explícitamente el prefill CUDA cuando `require_triton` esté activo hasta disponer de un kernel causal validado en GPU
 - [x] Bloquear explícitamente el dispatch/combina MoE CUDA cuando `require_triton` esté activo hasta disponer de un kernel Triton validado

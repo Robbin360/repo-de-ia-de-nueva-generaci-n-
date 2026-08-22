@@ -41,6 +41,55 @@ if HAS_TRITON:
         tl.store(out_ptr + program * head_dim + offsets_d, output, mask=offsets_d < head_dim)
 
     @triton.jit
+    def _causal_prefill_experimental_kernel(
+        q_ptr,
+        k_ptr,
+        v_ptr,
+        out_ptr,
+        seq_len,
+        head_dim: tl.constexpr,
+        block_n: tl.constexpr,
+    ):
+        """Un programa por (batch*head, token de consulta), con softmax online.
+
+        Esta ruta existe para validar semántica CUDA frente a la referencia CPU.
+        No sustituye un kernel de prefill por bloques de producción: su coste y
+        granularidad requieren perfilado y pruebas numéricas en GPU.
+        """
+        query_index = tl.program_id(0)
+        batch_head = tl.program_id(1)
+        offsets_d = tl.arange(0, head_dim)
+        row_base = (batch_head * seq_len + query_index) * head_dim
+        q = tl.load(q_ptr + row_base + offsets_d, mask=offsets_d < head_dim, other=0.0)
+        running_max = float("-inf")
+        running_sum = 0.0
+        accumulator = tl.zeros((head_dim,), dtype=tl.float32)
+        scale = 1.0 / tl.sqrt(head_dim.to(tl.float32))
+
+        for start_n in range(0, seq_len, block_n):
+            offsets_n = start_n + tl.arange(0, block_n)
+            matrix_offsets = (
+                batch_head * seq_len * head_dim
+                + offsets_n[:, None] * head_dim
+                + offsets_d[None, :]
+            )
+            valid = (offsets_n[:, None] < seq_len) & (offsets_d[None, :] < head_dim)
+            keys = tl.load(k_ptr + matrix_offsets, mask=valid, other=0.0)
+            scores = tl.sum(keys * q[None, :], axis=1) * scale
+            causal = (offsets_n <= query_index) & (offsets_n < seq_len)
+            scores = tl.where(causal, scores, float("-inf"))
+            block_max = tl.max(scores, axis=0)
+            next_max = tl.maximum(running_max, block_max)
+            rebase = tl.exp(running_max - next_max)
+            probabilities = tl.exp(scores - next_max)
+            values = tl.load(v_ptr + matrix_offsets, mask=valid, other=0.0)
+            accumulator = accumulator * rebase + tl.sum(values * probabilities[:, None], axis=0)
+            running_sum = running_sum * rebase + tl.sum(probabilities, axis=0)
+            running_max = next_max
+
+        tl.store(out_ptr + row_base + offsets_d, accumulator / running_sum, mask=offsets_d < head_dim)
+
+    @triton.jit
     def _top2_router_kernel(logits_ptr, indices_ptr, weights_ptr, n_tokens, n_experts: tl.constexpr, block_experts: tl.constexpr):
         token = tl.program_id(0)
         offsets = tl.arange(0, block_experts)
@@ -115,6 +164,45 @@ def causal_prefill_reference(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) 
     scores = scores.masked_fill(~causal_mask, float("-inf"))
     weights = torch.softmax(scores, dim=-1)
     return torch.matmul(weights, v.float()).to(q.dtype)
+
+
+def causal_prefill_experimental(
+    q: torch.Tensor,
+    k: torch.Tensor,
+    v: torch.Tensor,
+    *,
+    require_triton: bool = False,
+) -> torch.Tensor:
+    """Ejecuta el kernel experimental sólo para validación CUDA controlada.
+
+    La función nunca habilita por sí misma el prefill estricto del modelo.
+    `Attention.forward` conserva su bloqueo contractual hasta que existan
+    equivalencia numérica, gradientes y perfilado CUDA registrados.
+    """
+    if q.ndim != 4 or k.ndim != 4 or v.ndim != 4 or q.shape != k.shape or k.shape != v.shape:
+        raise ValueError("prefill causal espera q/k/v con la misma forma [B,H,S,D]")
+    if q.is_cuda and k.is_cuda and v.is_cuda and HAS_TRITON:
+        batch, heads, sequence_length, head_dim = q.shape
+        if sequence_length > 2048 or head_dim > 128 or head_dim & (head_dim - 1):
+            raise RuntimeError("prefill experimental Triton requiere seq_len <= 2048 y head_dim potencia de dos <= 128")
+        q_flat = q.contiguous().view(batch * heads, sequence_length, head_dim)
+        k_flat = k.contiguous().view(batch * heads, sequence_length, head_dim)
+        v_flat = v.contiguous().view(batch * heads, sequence_length, head_dim)
+        output = torch.empty_like(q_flat)
+        _causal_prefill_experimental_kernel[(sequence_length, batch * heads)](
+            q_flat,
+            k_flat,
+            v_flat,
+            output,
+            sequence_length,
+            head_dim=head_dim,
+            block_n=64,
+            num_warps=4,
+        )
+        return output.view(batch, heads, sequence_length, head_dim)
+    if require_triton:
+        raise RuntimeError("prefill experimental exige Triton y CUDA; no se permite fallback en modo estricto")
+    return F.scaled_dot_product_attention(q, k, v, is_causal=True)
 
 
 def top2_router(logits: torch.Tensor, *, require_triton: bool = False) -> tuple[torch.Tensor, torch.Tensor]:
