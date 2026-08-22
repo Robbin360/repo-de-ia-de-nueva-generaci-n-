@@ -173,6 +173,7 @@
 - [x] Definir la ruta de Aethel desde entrenamiento autorizado hasta operación comercial persistente, con infraestructura, seguridad y criterios de promoción
 - [ ] Entrenar y evaluar un modelo propio Aethel Edge con el Dataset trazable sólo cuando exista GPU autorizada, sin usar extracción de conocimiento interno ni resultados simulados
 - [ ] Evaluar y documentar una ruta local reproducible con GPU para entrenar Aethel Seed y Edge sin depender de sesiones Kaggle
+- [x] Implementar un inspector local que genere evidencia de GPU/CUDA, Dataset, almacenamiento y bloqueos antes de Seed o Edge
 - [x] Documentar el runbook local de GPU para Aethel Seed, incluyendo directorios montados, preflight, evidencia, reanudación y límites de Edge
 - [x] Comparar plataformas gratuitas vigentes de GPU para el piloto Aethel, incluyendo límites de sesión, almacenamiento y persistencia de checkpoints
 - [x] Definir el runbook operativo de Aethel Seed para Kaggle con preflight offline, checkpoints atómicos, evaluación holdout y reanudación verificada

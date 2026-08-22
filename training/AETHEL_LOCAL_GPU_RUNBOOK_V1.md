@@ -38,6 +38,8 @@ No mezclar `runs/` dentro de `data/`, no editar shards congelados y no guardar D
 
 La primera ejecución no debe comenzar entrenando. Se ejecutan puertas en el siguiente orden y cada una conserva su reporte en `runs/aethel-seed-e0/`.
 
+Antes del preflight puede ejecutarse `training/inspect_local_aethel_host.py`. El inspector no entrena ni reserva GPU: verifica archivos de código, integridad del Dataset, capacidad de escritura, espacio libre, CUDA y disponibilidad de Triton; después emite `host_inspection.json`. `READY_FOR_AUTHORIZATION` sólo significa que el host pasó sus controles locales; sigue siendo necesaria una autorización humana separada para Seed.
+
 | Orden | Puerta | Resultado aceptable | Motivo de bloqueo |
 |---:|---|---|---|
 | 1 | Identidad de hardware | El sistema expone CUDA y registra nombre/VRAM. | No hay GPU CUDA o drivers compatibles. |
