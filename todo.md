@@ -297,3 +297,6 @@
 - [x] Actualizar en GitHub la documentación de estado y la matriz de lenguajes, responsabilidades y componentes de Aethel
 - [x] Contrastar la auditoría técnica aportada, aclarar artefactos no certificados y reforzar el estado verificable en la documentación de Aethel
 - [x] Inventariar los archivos locales de Aethel, su relación con GitHub y las acciones permitidas para preservarlos
+- [x] Revisar si la auditoría del otro chat comprendió la visión, el contenido y las restricciones verificables de Aethel
+- [x] Redactar directivas corregidas para el otro chat sobre los cinco pilares, la meta bilingüe, respaldos locales y Kaggle/My Browser
+- [x] Auditar y sincronizar únicamente archivos locales aptos para la preparación de Dataset privado y E0, manteniendo datos y pesos fuera de GitHub
