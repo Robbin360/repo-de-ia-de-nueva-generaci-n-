@@ -29,4 +29,6 @@ Se incorporaron `causal_prefill_reference()`, `causal_prefill_experimental()` y 
 
 La matriz obligatoria para pasar de estado experimental a una propuesta de habilitación está persistida en `training/AETHEL_TRITON_CUDA_ACCEPTANCE_MATRIX_V1.md`. Exige evidencia de entorno, paridad, causalidad, gradientes o etiqueta `inference_only`, memoria, rendimiento, límites y rollback para prefill; y de router, capacidad, dispatch, combinación, balance y gradientes para MoE. Hasta que esos artefactos CUDA existan, ambas rutas continúan bloqueadas en modo estricto.
 
+El ejecutor `training/run_triton_cuda_acceptance.py` materializa una parte de esa matriz sin modificar contratos de producción. En GPU compatible registra commit, versiones, dispositivo, paridad de prefill contra SDPA, memoria, router top-2 y capacidad; fuera de GPU/Triton emite un informe `NOT_RUN` y termina con código 2. La prueba `training/test_triton_cuda_acceptance.py` pasó el 22 de agosto de 2026 en este entorno sin CUDA, confirmando que el bloqueo se conserva y que no se habilita ningún kernel.
+
 > Esta evidencia define el contrato del futuro kernel de dispatch/combina; no valida CUDA ni reduce la brecha de producción descrita en la tabla.

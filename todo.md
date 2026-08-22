@@ -158,6 +158,7 @@
 - [x] Implementar el kernel Triton experimental de prefill causal y dejarlo bloqueado hasta validación numérica CUDA
 - [x] Definir la matriz de aceptación CUDA para equivalencia, gradientes, memoria, rendimiento y límites de los kernels Triton experimentales
 - [x] Persistir y verificar la matriz CUDA, enlazarla con la auditoría Triton y mantener los bloqueos estrictos hasta evidencia GPU
+- [x] Implementar un ejecutor CUDA de aceptación que registre entorno, paridad y límites de los kernels experimentales sin habilitarlos automáticamente
 - [x] Auditar las rutas actuales de atención causal y dispatch/combina MoE frente a los contratos Triton antes de completar kernels GPU
 - [x] Bloquear explícitamente el prefill CUDA cuando `require_triton` esté activo hasta disponer de un kernel causal validado en GPU
 - [x] Bloquear explícitamente el dispatch/combina MoE CUDA cuando `require_triton` esté activo hasta disponer de un kernel Triton validado
