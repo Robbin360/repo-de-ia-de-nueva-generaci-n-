@@ -35,6 +35,12 @@ Los siguientes archivos están en el repositorio privado y deben tomarse de la m
 
 No se suben `node_modules`, `runtime/aethel-memory-rust/target`, cachés, logs del servidor, `.env`, cookies, credenciales ni secretos.
 
+## Relevo seguro para otro chat
+
+El siguiente chat debe partir de la rama `main` más reciente del repositorio privado, leer esta guía junto con el documento de continuidad y generar el bundle de código desde esa misma revisión. GitHub contiene únicamente fuentes, scripts, documentación y metadatos aptos; **no** contiene el Dataset congelado, checkpoints CPU externos, secretos ni una sesión de Kaggle.
+
+El otro chat puede preparar explicaciones, validar archivos de código y construir el bundle privado de fuentes. Las acciones sobre la cuenta Kaggle del usuario —incluida la creación o actualización del Dataset privado, la carga del bundle, la configuración de Notebook, GPU y E0— pertenecen exclusivamente a una sesión My Browser realmente conectada y requieren las confirmaciones indicadas más abajo.
+
 ## Secuencia obligatoria en Kaggle
 
 1. **Sesión personal.** Verificar que la navegación opera en My Browser del usuario. Si hay sandbox, login, CAPTCHA o pantalla de conexión, detenerse sin alternativa automática.
