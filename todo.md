@@ -302,3 +302,4 @@
 - [x] Auditar y sincronizar únicamente archivos locales aptos para la preparación de Dataset privado y E0, manteniendo datos y pesos fuera de GitHub
 - [x] Verificar y documentar que GitHub contiene los insumos seguros para que otro chat continúe Dataset y E0 sin acciones de Kaggle desde esta sesión
 - [x] Retirar del repositorio GitHub los artefactos compilados Rust regenerables y excluirlos de futuras sincronizaciones
+- [x] Inventariar y sincronizar en GitHub todos los scripts, manifiestos, validadores y metadatos seguros locales necesarios para reproducir el proceso Aethel

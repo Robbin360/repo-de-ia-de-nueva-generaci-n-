@@ -1,0 +1,22 @@
+{
+  "dataset_id": "aethel-knowledge-reasoning-bilingual-v1",
+  "validation_scope": "offline local package validation",
+  "valid": true,
+  "errors": [],
+  "warnings": [],
+  "network_requests": 0,
+  "shard_count": 22,
+  "record_counts": {
+    "holdout:en": 989,
+    "holdout:es": 988,
+    "train:en": 19011,
+    "train:es": 19012
+  },
+  "data_included": false,
+  "not_evidence_of": [
+    "Kaggle upload",
+    "GPU training",
+    "Seed checkpoint",
+    "benchmark result"
+  ]
+}
