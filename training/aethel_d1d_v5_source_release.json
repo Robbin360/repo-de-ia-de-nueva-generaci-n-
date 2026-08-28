@@ -1,0 +1,38 @@
+{
+  "schema": "aethel-kaggle-source-release/v1",
+  "release": "d1d-v1-router-entropy-train-only",
+  "purpose": "Select the exact private code bundle for a future separately authorized D1D train-only router entropy diagnostic. It adds dense normalized negative-entropy regularization while preserving the historical balance auxiliary term and keeps the notebook, GPU, training, resume, checkpoint, holdout, promotion, serving, and network gates closed.",
+  "supersedes": "d1c-v4-v3-r1-launcher-profile-train-only",
+  "e0_evidence_release": "e0-v8-canonical-cuda-device-check",
+  "d0_audit_release": "d0-v1-e0-v8-static-audit",
+  "d1c_reference_status": "D1C_ROUTER_NOT_IMPROVED",
+  "d1d_scope": "local-entropy-regularization-train-only-preparation",
+  "d1d_entropy_loss_weight": 0.01,
+  "d1d_execution_authorized": false,
+  "training_authorized": false,
+  "notebook_edit_authorized": false,
+  "gpu_authorized": false,
+  "resume_authorized": false,
+  "holdout_authorized": false,
+  "dataset_required": "aethel-nextgen-data-v1",
+  "contains": [
+    "engine/router_auxiliary.py",
+    "engine/aethel_model.py",
+    "engine/aethel_nextgen.py",
+    "engine/train_aethel_gpu.py",
+    "engine/test_router_entropy_regularization.py",
+    "engine/test_router_entropy_integration.py",
+    "training/AETHEL_D1D_ROUTER_ENTROPY_BLOCKED_CELL.py",
+    "training/AETHEL_D1D_ROUTER_ENTROPY_EXECUTION_CELL.py",
+    "training/run_kaggle_d1d_router_entropy_diagnostic.sh",
+    "training/test_d1d_blocked_cell.py",
+    "training/AETHEL_D1D_ROUTER_ENTROPY_PROTOCOL_2026-08-25.md",
+    "training/aethel_d1d_v5_source_release.json"
+  ],
+  "excluded": [
+    "raw corpus and JSONL",
+    "weights and checkpoints",
+    "metrics JSONL",
+    "bytecode and caches"
+  ]
+}

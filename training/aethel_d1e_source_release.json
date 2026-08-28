@@ -1,0 +1,30 @@
+{
+  "schema": "aethel-kaggle-source-release/v1",
+  "release": "d1e-v1-router-entropy-strength-train-only",
+  "purpose": "Seleccionar el bundle privado de código para una futura sonda D1E train-only con regularización densa de entropía reforzada.",
+  "supersedes": "d1d-v1-router-entropy-train-only",
+  "diagnostic_id": "D1E",
+  "d1e_scope": "local-prepared-train-only-router-diagnostic",
+  "router_entropy_loss_weight": 0.03,
+  "router_aux_loss_weight": 0.05,
+  "steps": 768,
+  "seed": 17,
+  "fresh_initialization": true,
+  "checkpoint_loading_authorized": false,
+  "holdout_read_authorized": false,
+  "d1e_execution_authorized": false,
+  "training_authorized": false,
+  "notebook_edit_authorized": false,
+  "gpu_authorized": false,
+  "promotion_authorized": false,
+  "contains": [
+    "engine/router_auxiliary.py",
+    "engine/aethel_model.py",
+    "engine/aethel_nextgen.py",
+    "engine/train_aethel_gpu.py",
+    "training/summarize_d1a_router_metrics.py",
+    "training/run_kaggle_d1e_router_entropy_strength_diagnostic.sh",
+    "training/AETHEL_D1E_ROUTER_ENTROPY_BLOCKED_CELL.py",
+    "training/AETHEL_D1E_ROUTER_ENTROPY_STRENGTH_PROTOCOL_2026-08-25.md"
+  ]
+}

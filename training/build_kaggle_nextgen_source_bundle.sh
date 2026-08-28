@@ -13,6 +13,17 @@ trap cleanup EXIT
 mkdir -p "$OUTPUT_DIR"
 SOURCE_ROOT="$STAGING/$PACKAGE_NAME"
 mkdir -p "$SOURCE_ROOT"
+RELEASE_FILE="$ROOT/training/aethel_kaggle_source_release.json"
+
+if [[ ! -f "$RELEASE_FILE" ]]; then
+  echo "Falta el marcador de release de código: $RELEASE_FILE" >&2
+  exit 2
+fi
+SOURCE_RELEASE="$(sed -nE 's/^[[:space:]]*"release"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "$RELEASE_FILE")"
+if [[ -z "$SOURCE_RELEASE" ]]; then
+  echo "El marcador de release no contiene un valor release legible." >&2
+  exit 2
+fi
 
 cp -R "$ROOT/engine" "$SOURCE_ROOT/engine"
 cp -R "$ROOT/training" "$SOURCE_ROOT/training"
@@ -29,6 +40,8 @@ rm -f "$SOURCE_ROOT/engine/train_aethel_v3.py"
 rm -f "$SOURCE_ROOT"/training/KAGGLE_NEXTGEN_CELL_*.py
 find "$SOURCE_ROOT" -type d -name '__pycache__' -prune -exec rm -rf {} +
 find "$SOURCE_ROOT" -type f -name '*.pyc' -delete
+find "$SOURCE_ROOT" -type d \( -name node_modules -o -name target -o -name .git \) -prune -exec rm -rf {} +
+find "$SOURCE_ROOT" -type f \( -name '*.pt' -o -name '*.pth' -o -name '*.ckpt' -o -name '*.safetensors' -o -name '*.jsonl' -o -name '*.jsonl.gz' \) -delete
 
 if find "$SOURCE_ROOT" -iname '*v3*' -print -quit | grep -q .; then
   echo "El paquete contiene referencias V3 y se rechaza para evitar reusar el flujo heredado." >&2
@@ -43,13 +56,14 @@ cat > "$MANIFEST" <<EOF
 {
   "schema": "aethel-kaggle-source/v1",
   "package": "$(basename "$ARCHIVE")",
+  "release": "$SOURCE_RELEASE",
   "sha256": "$(sha256sum "$ARCHIVE" | awk '{print $1}')",
   "entrypoint": "training/bootstrap_kaggle_nextgen.sh",
   "trainer": "engine/train_aethel_gpu.py",
-  "excluded": ["Aethel V3 checkpoints", "legacy V3 trainer", "local artifacts", "local corpora"],
-  "requires_separate_input": "aethel-nextgen-data"
+  "excluded": ["Dataset data and raw JSONL", "weights and checkpoints", "legacy V3 trainer", "local artifacts", "local corpora", "bytecode and caches", "dependencies"],
+  "requires_separate_input": "aethel-nextgen-data-v1"
 }
 EOF
 
-printf 'SOURCE_BUNDLE=%s\nMANIFEST=%s\nSHA256=%s\n' \
-  "$ARCHIVE" "$MANIFEST" "$(sha256sum "$ARCHIVE" | awk '{print $1}')"
+printf 'SOURCE_BUNDLE=%s\nMANIFEST=%s\nSOURCE_RELEASE=%s\nSHA256=%s\n' \
+  "$ARCHIVE" "$MANIFEST" "$SOURCE_RELEASE" "$(sha256sum "$ARCHIVE" | awk '{print $1}')"

@@ -304,3 +304,254 @@
 - [x] Retirar del repositorio GitHub los artefactos compilados Rust regenerables y excluirlos de futuras sincronizaciones
 - [x] Inventariar y sincronizar en GitHub todos los scripts, manifiestos, validadores y metadatos seguros locales necesarios para reproducir el proceso Aethel
 - [x] Redactar la directiva de continuidad para Dataset privado y E0, con objetivos, parámetros, límites y ruta Seed–Edge–Pro
+- [x] Crear y verificar un archivo local privado de transferencia del Dataset congelado para el entorno que opera Kaggle
+- [x] Guiar la subida manual del Dataset privado y la preparación del preflight E0 cuando My Browser no esté disponible
+- [x] Crear y verificar un ZIP privado con estructura plana del Dataset listo para extracción y carga manual
+- [x] Verificar visualmente el Dataset privado `aethel-nextgen-data-v1` recién creado antes de preparar el preflight E0
+- [x] Generar y verificar localmente el bundle privado de código Aethel para el preflight E0, sin subirlo a Kaggle
+- [x] Alinear el manifiesto del bundle de código con el Dataset privado `aethel-nextgen-data-v1`
+- [x] Explicar y guiar la creación manual del Dataset privado de código E0, separado del Dataset de conocimiento
+- [x] Adaptar y verificar el preflight E0 para la estructura de código descomprimida por Kaggle, sin GPU ni entrenamiento
+- [x] Añadir un ejecutor reproducible de preflight offline que no importe CUDA ni inicie entrenamiento
+- [x] Actualizar manualmente `aethel-nextgen-source-e0-v1` con el bundle que incorpora el preflight offline
+- [x] Diagnosticar la ruta real de montaje del Dataset de código en Kaggle tras el bloqueo del preflight
+- [x] Ajustar la celda de preflight a la ruta anidada de montaje expuesta por Kaggle
+- [x] Inspeccionar en modo de solo lectura la estructura real de `corpus/` montada por Kaggle y resolver el bloqueo de validación sin modificar el Dataset
+- [x] Añadir verificación de hashes de contenido plano para el montaje descomprimido por Kaggle, sin aceptar shards no verificables ni alterar el Dataset congelado
+- [x] Subir manualmente el bundle privado de código V3 a una nueva versión de `aethel-nextgen-source-e0-v1` y repetir sólo el preflight offline
+- [x] Seleccionar de forma verificable el bundle V3 dentro de las carpetas de código multi-versión montadas por Kaggle antes de ejecutar el preflight
+- [x] Ejecutar la aceptación CUDA/Triton en Kaggle T4 ×2 sin autorizar ni iniciar el entrenamiento E0
+- [x] Corregir el fallo real de compilación Triton en `causal_prefill_kernel` (`head_dim` constexpr tratado como entero) y repetir la aceptación aislada
+- [x] Preservar el informe real de aceptación experimental V4 y mantener bloqueadas las rutas Triton estrictas hasta cubrir gradientes, dispatch/combine y la matriz CUDA completa
+- [x] Añadir una identidad de release V4 verificable para impedir que Kaggle seleccione un bundle V3 anterior durante la repetición de aceptación
+- [x] Incluir la identidad de release V4 en el informe de aceptación, ya que el código descomprimido de Kaggle no tiene metadatos Git disponibles
+- [x] Repetir el preflight offline con el release V4 verificable y confirmar integridad de los 22 shards antes de la aceptación CUDA/Triton
+- [x] Preparar una celda de lanzamiento Seed E0 que seleccione el release V4, requiera doble autorización y conserve checkpoints privados
+- [x] Adaptar el lanzador E0 para resolver holdouts `.jsonl` descomprimidos por Kaggle sin alterar el Dataset ni permitir mezcla de formatos
+- [x] Emitir un release V5 identificable que contenga la compatibilidad de shards descomprimidos y el lanzamiento E0 controlado
+- [x] Sustituir la instalación `pip` del lanzador por una comprobación explícita y sin red de dependencias ya disponibles en Kaggle
+- [ ] Crear y ejecutar un preflight offline que seleccione explícitamente el release V5 antes del lanzamiento E0
+- [x] Crear y ejecutar un preflight offline que seleccione explícitamente el release V5 antes del lanzamiento E0
+- [x] Diagnosticar el fallo de la versión Kaggle tras el inicio real de E0 V5 y verificar si persiste algún checkpoint o recibo recuperable
+- [x] Corregir la actualización de memoria líquida para alinear la traza hebbiana al dispositivo CUDA antes de cualquier reintento E0
+- [x] Ejecutar en Kaggle la regresión CUDA V6 de memoria líquida y bloquear el reintento E0 al fallar la aserción de `memory_state` en CUDA
+- [x] Empaquetar y verificar localmente el release V6 `e0-v6-liquid-cuda-alignment` sin incluir Dataset, pesos, checkpoints ni bytecode
+- [x] Subir el bundle V6 verificado como una nueva versión privada de `aethel-nextgen-source-e0-v1`, sin modificar `aethel-nextgen-data-v1`
+- [x] Actualizar la guía Kaggle y el handoff con el intento V5 abortado, la ausencia de checkpoint recuperable y las puertas V6
+- [x] Corregir el notebook si el preflight sigue mostrando `SOURCE_RELEASE: e0-v5-plaintext-kaggle-e0-launch` y repetir sólo el preflight V6 hasta verificar el selector exacto
+- [x] Corregir la reasignación de `memory_state` durante `forward`, detectada por el smoke V6 antes de E0
+- [x] Empaquetar y verificar localmente el release V7 `e0-v7-registered-memory-state`, sin corpus, pesos, checkpoints ni bytecode
+- [x] Emitir y ejecutar el smoke CUDA del release V7; quedó invalidado por la comparación no canónica entre `cuda` y `cuda:0`, sin iniciar E0
+- [x] Diagnosticar el falso bloqueo V7: la igualdad entre `torch.device("cuda")` y `torch.device("cuda:0")` no es canónica, por lo que no acreditaba estado CPU
+- [x] Emitir y verificar localmente el release V8 `e0-v8-canonical-cuda-device-check`, sin corpus, pesos, checkpoints ni bytecode
+- [x] Ejecutar y validar en Kaggle el smoke CUDA V8 con comparación de tipo, índice e identidad del buffer antes de cualquier reintento E0
+- [x] Documentar el preflight y smoke CUDA V8 aprobados, manteniendo explícitamente ausentes el entrenamiento, checkpoint y evaluación E0 V8
+- [x] Reemplazar la tercera celda de lanzamiento V5 por el lanzador experimental V8 antes de solicitar el commit E0
+- [x] Corregir la adjunción o actualización del input de código en Kaggle cuando el preflight V8 no encuentre `e0-v8-canonical-cuda-device-check`
+- [x] Ejecutar el preflight V8 con el release exacto montado y validar los 22 shards sin red antes del smoke CUDA
+- [x] Ejecutar E0 V8 mediante Commit tras el preflight y smoke aprobados; el log llegó al paso 4992 y el lanzador terminó sin error
+- [x] Inspeccionar `latest.pt`, `recovery_receipt.json` y los artefactos persistidos de E0 V8 sin promover el checkpoint
+- [x] Inspeccionar `checkpoint_inspection.json`: 150 tensores, metadatos completos, paso 4992 y reanudación reproducible declarada
+- [x] Inspeccionar por separado `evaluation_holdout_en.json` y `evaluation_holdout_es.json` antes de citar pérdidas o métricas de holdout
+- [x] Auditar `metrics_rank_0.jsonl` sin cargar pesos: 4992 pasos, telemetría de router y salvaguardas de memoria/curiosidad registradas
+- [x] Actualizar el dashboard con el estado E0 V8 auditado, sus métricas holdout separadas y límites de no promoción
+- [x] Documentar una remediación E0 basada en la pérdida, brecha EN/ES y salud del router observadas, sin reanudar ni ejecutar otro entrenamiento
+- [x] Implementar y validar localmente la auditoría D0 de solo lectura para marcador de release, manifiesto raíz, hash del tokenizer, conteos congelados y evidencia estática E0 V8; no abre shards, holdout, pesos ni telemetría cruda
+- [x] Preparar la celda Kaggle D0 sin GPU ni acceso a pesos, holdout, entrenamiento o modificaciones de Dataset; ejecutada una vez de forma controlada
+- [x] Construir y auditar el bundle privado de código D0, excluyendo Dataset, pesos, checkpoints, bytecode, cachés y dependencias
+- [x] Actualizar exclusivamente el Dataset privado de código `aethel-nextgen-source-e0-v1` con el bundle D0 tras confirmación inmediata del usuario; versión privada montada `(9)` y marcador exacto verificado
+- [x] Editar y ejecutar la celda D0 en Kaggle sólo tras confirmaciones inmediatas separadas; `D0_AUDIT_READY` confirmó cero GPU, pesos, corpus/holdout crudo, red, entrenamiento, reanudación o D1
+- [x] Preparar y revisar un protocolo D1A de diagnóstico desde inicialización nueva, con sólo train, telemetría de router y autorizaciones separadas; no se ejecutó GPU, Kaggle ni entrenamiento
+- [x] Implementar y probar localmente el validador D1A train-only y el resumen sin pesos de `metrics_rank_0.jsonl`, con rechazo explícito de holdout, checkpoints, GPU y red
+- [x] Construir y auditar localmente el bundle privado D1A, con release exacto y exclusiones de Dataset, pesos, checkpoints, bytecode, cachés y dependencias; después se subió sólo al Dataset privado de código tras confirmación separada
+- [x] Actualizar exclusivamente el Dataset privado de código `aethel-nextgen-source-e0-v1` con el bundle D1A tras confirmación inmediata; release exacto verificado, sin modificar el Dataset de datos ni ejecutar notebook
+- [x] Preparar una celda D1A para añadir al notebook, con la ejecución, GPU, entrenamiento y evaluación holdout todavía bloqueados
+- [x] Añadir la celda D1A al notebook sólo tras confirmación inmediata; se ejecutó una vez sólo en modo bloqueado, sin seleccionar GPU
+- [x] Ejecutar D1A desde inicialización nueva sólo tras una nueva autorización inmediata para seleccionar GPU y entrenar; 768 pasos concluyeron con `D1A_DIAGNOSTIC_COMPLETE`, manteniendo holdout, pesos E0, reanudación y D1B bloqueados
+- [x] Preparar y validar localmente la modificación habilitable de la celda D1A, sin ejecutarla todavía ni relajar las puertas de holdout, E0, reanudación, promoción o D1B
+- [x] Reemplazar la quinta celda D1A por la variante habilitable sólo tras confirmación inmediata; verificar primero que permanecía bloqueada y abrir sus cuatro puertas sólo tras autorización final
+- [x] Abrir las cuatro puertas D1A autorizadas y ejecutar únicamente 768 pasos desde inicialización nueva; mantuvo holdout, pesos E0, reanudación, promoción y D1B bloqueados
+- [x] Revisar y, si se autoriza de forma separada, preservar la salida D1A mediante `Save Version`; Version #3 fue exitosa sin cargar, mover, reanudar ni promover ningún checkpoint
+- [x] Ejecutar Save Version privado para la salida D1A tras confirmación inmediata y verificar su versión creada, sin acciones sobre checkpoints
+- [x] Redactar un plan documental de revisión de evidencia D1A que delimite metadatos permitidos, exclusiones y autorizaciones futuras, sin abrir salidas, checkpoints, corpus, holdout ni Kaggle
+- [x] Preparar y validar un protocolo documental D1B basado sólo en la evidencia resumida D1A, sin abrir artefactos, modificar código/Dataset ni usar Kaggle o GPU
+- [x] Implementar y probar contratos locales D1B bloqueados que exijan release exacto, train-only, inicio nuevo y autorizaciones explícitas, sin ejecutar GPU, Kaggle ni entrenamiento
+- [x] Construir, auditar y actualizar manualmente sólo el Dataset privado de código con el release D1B; la interfaz confirmó creación exitosa, sin número de versión/montaje visible y sin modificar `aethel-nextgen-data-v1`, notebook, GPU, outputs ni checkpoints
+- [x] Preparar, añadir y ejecutar una celda D1B bloqueada; el release montado `(11)` devolvió `D1B_CELL_PREPARED_NOT_EXECUTED` sin copiar código, leer datos, seleccionar GPU ni ejecutar entrenamiento
+- [x] Preparar y validar localmente una variante habilitable D1B con cinco puertas separadas para reemplazo de celda, GPU y ejecución, sin modificar Kaggle ni ejecutar diagnóstico
+- [x] Reemplazar manualmente la celda D1B bloqueada por la variante habilitable y verificar que las cinco puertas permanezcan cerradas; el montaje `(11)` devolvió `D1B_EXECUTION_PENDING_FINAL_AUTHORIZATION` sin GPU ni ejecución
+- [x] Entregar y validar la Celda 5 D1B completa con encabezado de numeración, y establecer esa convención para futuras celdas sin ejecutarla
+- [x] Ejecutar una única corrida D1B autorizada desde inicialización nueva, con GPU T4 ×2 y sólo train; `D1B_DIAGNOSTIC_COMPLETE` registró 44/768 pasos saludables y router no mejorado, sin abrir holdout ni manejar checkpoints
+- [x] Realizar una revisión documental comparativa D1A/D1B que descarte hipótesis de router no apoyadas, sin abrir artefactos ni proponer ejecución
+- [x] Definir y validar una ruta local de aceleración hacia un primer modelo Aethel verificable, con criterios de decisión y sin habilitar acciones externas no autorizadas
+- [x] Implementar y validar un contrato local determinista de salud del router MoE con entradas sintéticas, sin corpus, pesos, GPU ni Kaggle
+- [x] Auditar y preparar localmente el control de la pérdida auxiliar MoE para una hipótesis futura, sin abrir datos protegidos ni iniciar una corrida
+- [x] Verificar localmente la dirección de la señal auxiliar MoE con tensores sintéticos, sin formular ni ejecutar una nueva corrida
+- [x] Preparar y validar localmente D1C como diagnóstico train-only bloqueado del peso auxiliar MoE, sin actualizar Kaggle ni ejecutar entrenamiento
+- [x] Preparar y validar localmente el release de código y la Celda 6 bloqueada de D1C, sin actualizar Kaggle ni ejecutar el diagnóstico
+- [x] Crear manualmente una nueva versión privada del Dataset de código D1C con el bundle validado, sin tocar el Dataset de datos ni ejecutar notebook
+- [x] Verificar el montaje D1C mediante la CELDA 6 bloqueada, sin usar GPU, abrir datos ni ejecutar entrenamiento
+- [x] Preparar y validar localmente una plantilla D1C habilitable con puertas cerradas, sin usar GPU ni ejecutar el diagnóstico
+- [x] Añadir y verificar la CELDA 7 D1C con sus cinco puertas cerradas, sólo tras una confirmación específica y sin ejecutar diagnóstico
+- [x] Ejecutar una única D1C autorizada: inicialización nueva, train-only, 768 pasos y `router_aux_loss_weight=0.05`; el intento V1 quedó bloqueado al cerrar el resumen, sin holdout, pesos E0, reanudación, promoción ni serving
+- [x] Corregir y validar localmente el soporte de resumen D1C que bloqueó el cierre de la única corrida autorizada, sin reanudar ni inspeccionar outputs
+- [x] Preparar localmente el release D1C V2 de corrección de resumen y su verificación bloqueada, sin actualizar Kaggle ni repetir la corrida
+- [x] Crear manualmente una nueva versión privada del Dataset de código D1C V2 con el bundle validado, sin tocar el Dataset de datos ni ejecutar notebook
+- [x] Verificar el montaje del release privado D1C V2 mediante CELDA 8 bloqueada, sin usar GPU, abrir datos ni ejecutar retry
+- [x] Preparar y validar localmente una plantilla de retry D1C V2 con puertas cerradas, sin repetir entrenamiento ni acceder a artefactos
+- [x] Preparar y entregar la variante D1C de CELDA 7 con puertas abiertas para edición manual, sin ejecutarla
+- [x] Preparar y entregar la variante D1C de CELDA 7 con puertas abiertas para edición manual, sin ejecutarla
+- [x] Construir y validar localmente el release D1C V3 con la CELDA 9 de retry bloqueada, sin cargarlo a Kaggle ni acceder a Dataset, GPU, outputs o checkpoints
+- [x] Subir manualmente el bundle privado D1C V3 al Dataset de código tras autorización específica y verificar visualmente su directorio; no autoriza editar/ejecutar CELDA 9, GPU ni retry
+- [x] Guiar la creación manual autorizada de la versión privada de código D1C V3, sin cambios de notebook, GPU ni retry
+- [x] Añadir manualmente la CELDA 9 D1C V3 con sus cinco puertas cerradas, sin ejecutarla ni seleccionar GPU
+- [x] Ajustar y validar la CELDA 9 bloqueada para que seleccione exactamente el release D1C V3, sin abrir su rama de retry
+- [x] Ejecutar una vez la CELDA 9 D1C V3 exclusivamente en modo bloqueado y registrar su salida segura «candidatos: ninguno», sin GPU, retry, Dataset train/holdout, pesos, outputs ni checkpoints
+- [x] Diagnosticar y corregir localmente el selector de la CELDA 9 V3 tras el bloqueo seguro «candidatos: ninguno», sin habilitar GPU ni retry
+- [x] Determinar que no era necesario reemplazar la CELDA 9 V3: el bloqueo procedía del input de código no actualizado en el notebook
+- [x] Registrar la salida exitosa de CELDA 9 V3 tras actualizar el input de código del notebook, sin habilitar GPU ni retry
+- [x] Delimitar y documentar localmente un eventual retry D1C como experimento nuevo, sin reanudar V1 ni habilitar acciones externas
+- [x] Preparar contratos locales de una plantilla D1C V3-R1 con puertas cerradas, sin editar el notebook ni ejecutar retry
+- [x] Implementar y validar localmente la plantilla de CELDA 10 D1C V3-R1 con todas las puertas cerradas, sin editar el notebook ni ejecutar retry
+- [x] Corregir y validar localmente el contrato del lanzador D1C para un release V3-R1, manteniendo intacto el comportamiento histórico V1
+- [x] Preparar y validar localmente el release de código D1C V4 para la ruta V3-R1, sin cargarlo a Kaggle ni editar o ejecutar notebooks
+- [x] Preparar un empaquetador local seguro para V4 que permita referencias V3-R1 y excluya datos y artefactos
+- [x] Preparar un empaquetador local seguro para V4 que permita referencias V3-R1 y excluya datos y artefactos
+- [x] Documentar el bundle D1C V4 como preparación exclusivamente local, sin afirmar actualización de Kaggle ni ejecución
+- [x] Guiar la carga manual autorizada del ZIP privado D1C V4, sin editar/ejecutar CELDA 10 ni usar GPU o retry
+- [x] Registrar la confirmación visual de Version 16 privada y exitosa del release D1C V4, sin habilitar notebook, GPU o retry
+- [x] Pegar manualmente la CELDA 10 D1C V3-R1 con seis puertas cerradas, sin ejecutarla ni habilitar GPU o retry
+- [x] Ejecutar una única corrida D1C V3-R1 autorizada en T4: 768 pasos, train-only, inicialización nueva, sin holdout, reanudación ni acceso a artefactos
+- [x] Validar estáticamente la CELDA 10 autorizada y comprobar que conserva el release, la salida nueva y la prohibición de reanudación
+- [x] Documentar la corrida D1C V3-R1 completada como `D1C_ROUTER_NOT_IMPROVED`, sin abrir outputs/checkpoints ni iniciar D1D
+- [ ] Investigar localmente si la señal de balanceo basada en masa probabilística suave evita el atractor de dos expertos, sin GPU ni Dataset
+
+- [x] Corregir y validar localmente la expectativa de signo de la regularización de entropía del router MoE
+- [x] Redactar el protocolo formal D1D de regularización de entropía densa del router
+- [x] Integrar D1D en el entrenador sólo después de validar el contrato CPU y mantenerla bloqueada para GPU
+- [x] Añadir una prueba CPU de integración que verifique composición separada, propagación CLI y compatibilidad del peso D1D=0
+- [x] Preparar y validar localmente el bundle V5 de código D1D sin datos ni artefactos
+- [x] Crear y validar localmente la CELDA 11 D1D bloqueada, sin habilitar GPU ni ejecución
+- [x] Diagnosticar el input Kaggle real que no contiene el marcador D1D y preparar una celda de resolución segura
+- [x] Corregir la CELDA 11 para resolver el marcador D1D desde cualquier raíz de montaje confirmada por CELDA 11A
+- [x] Preparar la celda ejecutable D1D train-only de 768 pasos con salida nueva y bloqueo de holdout/reanudación
+- [x] Extender el resumidor y sus pruebas para aceptar D1D sin alterar los contratos D1A-D1C
+- [x] Corregir la CELDA 12 para aceptar el bundle D1D cuando el marcador y los archivos estén bajo una raíz anidada del montaje
+- [x] Registrar la corrida D1D real: 768 pasos CUDA, 52 saludables, router global no saludable y último paso saludable
+- [ ] Actualizar protocolo y handoff con la decisión D1D sin abrir holdout ni promoción (protocolo actualizado; el handoff maestro no está presente en el checkout local)
+- [x] Formular protocolo D1E independiente basado en aumentar la señal densa de entropía, sin reutilizar checkpoints ni seleccionar después de observar resultados
+- [x] Crear prueba estática y celda bloqueada D1E para el único peso 0.03, sin autorizar Kaggle ni GPU
+- [x] Crear prueba estática y celda bloqueada D1E para el único peso 0.03, sin autorizar Kaggle ni GPU
+- [x] Crear y auditar el bundle privado D1E V1 con protocolo, celda bloqueada y lanzador, excluyendo corpus y artefactos
+- [x] Resolver la duplicidad de dos montajes D1E idénticos en el notebook antes de repetir la verificación bloqueada
+- [x] Crear y validar una celda comparadora de copias D1E que inspeccione sólo contratos y archivos de código
+- [x] Seleccionar únicamente la copia D1E con la CELDA 12 ejecutable (variante montada con sufijo `(1)`) antes de repetir la corrida
+
+- [x] Corregir el lanzador D1E para usar `--corpus-dir`, `--tokenizer` y `--output`, y regenerar el bundle antes de repetir la corrida
+
+- [ ] Comparar las copias D1E `(1)` y `(3)` para confirmar cuál contiene el bundle corregido antes de reintentar la corrida
+
+- [ ] Dejar un único input D1E activo en el notebook; `(1)` y `(3)` son equivalentes y cualquiera puede conservarse, pero no ambos
+
+- [ ] Inspeccionar que `/kaggle/working/aethel-d1e-router-entropy-strength-v1` esté vacío antes de retirar sólo ese directorio residual
+
+- [x] Registrar D1E como corrida abortada por OOM CUDA sin métricas válidas ni checkpoint reutilizable
+- [x] Inspeccionar y reducir el consumo de memoria del runner sin cambiar el peso D1E ni los criterios del router
+- [x] Regenerar y auditar el bundle D1E después del ajuste memory-safe antes de subir una nueva versión
+
+- [x] Cambiar la salida de la CELDA 12 a `/kaggle/working/aethel-d1e-router-entropy-strength-v2` para no sobrescribir ni reanudar la salida v1 abortada
+
+- [x] Conservar documentada como parcial la salida D1E v1 con `metrics_rank_0.jsonl` y `tokenizer.json`, sin borrar ni reanudar
+- [x] Cambiar la salida de D1E memory-safe a `/kaggle/working/aethel-d1e-router-entropy-strength-v3` antes de regenerar el bundle
+
+- [x] Alinear el lanzador D1E con la interfaz real del resumidor (`--metrics`, `--output`, `--diagnostic-id`) y ampliar la prueba de contrato
+- [x] Regenerar y auditar el bundle D1E memory-safe después de alinear el lanzador con el resumidor
+- [x] Simplificar el flujo D1E y eliminar pasos redundantes tras los errores recurrentes de montaje, residuos y variantes
+- [x] Preparar una única ruta D1E verificable antes de pedir otra ejecución al usuario
+- [x] Reorientar D1E hacia una corrida directa de entrenamiento real con Dataset v1 y checkpoint verificable
+- [x] Auditar la configuración final de memoria y el contrato del Dataset v1 antes de ejecutar GPU
+- [x] Preparar un launcher único de entrenamiento directo, sin diagnósticos D1 intermedios
+- [x] Crear un cuaderno Kaggle nuevo y limpio para la corrida directa, conservando el cuaderno histórico sin modificar
+- [x] Documentar la separación: código limpio en `aethel-direct-train-source-v1` y datos en `aethel-nextgen-data-v1`
+- [x] Configurar el cuaderno nuevo `Aethel — Entrenamiento Directo Dataset V1` con exactamente tres celdas numeradas
+
+- [ ] Definir métricas verificables para razonamiento, bilingüismo español-inglés y matemáticas básicas
+- [ ] Diseñar un currículo escalonado de datos antes de ampliar el entrenamiento más allá del primer checkpoint
+- [ ] Proponer una ruta de escalado de arquitectura y cómputo condicionada a resultados reales, no a una métrica de IQ humano
+
+- [ ] Definir una batería de evaluaciones reproducibles de razonamiento, español-inglés y matemáticas como referencia de desempeño excepcional
+
+- [x] Crear un dataset privado de código nuevo para entrenamiento directo y no reutilizar el contenedor histórico `aethel-nextgen-source-e0-v1`
+
+- [ ] Definir y ejecutar contratos de validación para La Roca, El Líquido, Ciclo de Sueño, MoE, memoria y neuromodulación
+- [ ] Medir ultra-eficiencia con parámetros activos, VRAM, tokens por segundo, coste por token y comparación contra un baseline
+
+- [x] Auditar el repositorio original Aethel Meta y clasificar todas sus capacidades como implementadas, parciales o previstas
+- [x] Comparar las capacidades recuperadas de Aethel Meta con el núcleo actual antes de ampliar el entrenamiento
+- [x] Preparar y auditar el bundle mínimo `aethel-direct-train-source-v1`, sin releases D1 históricos, datos, pesos ni métricas
+- [x] Ejecutar la primera corrida directa y clasificar cada pilar como validado, telemetría presente, fallido o no ejecutado
+- [ ] Corregir la inestabilidad global del router MoE antes de ampliar tokens, tamaño o promover el checkpoint directo V1
+- [ ] Ejecutar un baseline comparable antes de afirmar ultra-eficiencia relativa o ventaja de coste
+
+- [x] Analizar la causa de 43/768 pasos saludables del router MoE en la corrida directa V1
+- [x] Diseñar e implementar una única corrección mínima del router con criterios de éxito predefinidos
+- [x] Preparar y auditar la revisión `router-selection-debias-v1` dentro del único bundle de código limpio
+- [x] Actualizar `aethel-direct-train-source-v1` con la revisión del router y ejecutar la única corrida correctiva tras autorización explícita
+
+- [x] Auditar por qué la entropía mínima y el desequilibrio máximo del router permanecen en los mismos límites tras la corrección de selección
+- [x] Implementar y validar localmente jitter de selección del router, sin alterar mezcla ni entropía densa
+- [x] Preparar el bundle y la guía de la única corrida correctiva `router-selection-jitter-v1`
+- [x] Actualizar el único dataset de código con `router-selection-jitter-v1` y verificar las celdas 1–2 antes de nueva GPU
+- [x] Ejecutar la corrida `router-selection-jitter-v1` y clasificar su mejora parcial del router
+- [ ] Aislar y reducir la concentración del router en el tramo inicial que aún deja 322/768 pasos no saludables
+
+- [x] Definir un protocolo de carga estricta y generación mínima para el checkpoint `router-selection-jitter-v1`, sin entrenamiento
+- [x] Implementar y validar localmente el evaluador aislado y su recibo reproducible
+- [x] Preparar el bundle y las tres celdas de Kaggle para evaluación sin ejecutar ni modificar el checkpoint
+
+- [x] Registrar que la sesión actual de Kaggle no conserva el checkpoint jitter bajo `/kaggle/working`
+- [x] Preparar una inspección de sólo lectura para localizar evidencia persistida del checkpoint jitter sin modificar artefactos
+- [x] Confirmar que no hay checkpoint Aethel recuperable en `/kaggle/working` ni en los inputs montados de la sesión actual
+- [x] Elegir repetir la corrida jitter en una salida inédita con preservación explícita
+- [x] Preparar la repetición aislada `router-selection-jitter-v1` con salida nueva y un recibo de preservación de checkpoint
+- [x] Ejecutar la repetición jitter preservable: 768 pasos, 446 saludables, checkpoint recuperable y validación de artefactos
+- [x] Corregir y validar el empaquetado de preservación contra los nombres reales de artefacto, sin reentrenar ni modificar el checkpoint
+- [x] Confirmar que la segunda salida jitter y su checkpoint ya no están disponibles en la sesión efímera antes de empaquetar
+- [x] Rediseñar y validar la preservación dentro de la misma corrida, con paquete, compuerta `SAVE_KAGGLE_VERSION_NOW.txt` y `sync`
+- [ ] Autorizar una nueva GPU sólo si el flujo de preservación corregido queda validado y se entiende el paso manual de Save Version
+- [x] Definir el primer tramo largo de Aethel Edge de hasta 12 horas por sesión, con checkpoints periódicos y reanudación fiel
+- [x] Investigar y seleccionar fuentes abiertas con licencia compatible para ampliar el corpus bilingüe, matemático y de razonamiento
+- [x] Construir un corpus ampliado con manifiesto, deduplicación, filtros de calidad y holdout EN/ES separados
+- [x] Diseñar el manifiesto Edge, los adaptadores trazables y el holdout separado sin descargar datos externos
+- [x] Preparar y validar un bundle largo Edge sin iniciar Kaggle ni GPU
+- [x] Auditar y reforzar el contrato de reanudación entre sesiones: pesos, optimizador, scheduler, scaler, RNG, configuración, tokenizador, hashes de datos y paso global
+- [x] Probar localmente una reanudación completa CPU en dos sesiones: pasos 1–2, preservación y continuación 3–4
+- [x] Comparar numéricamente una corrida continua contra la misma corrida interrumpida/reanudada: pesos, AdamW y RNG CPU equivalentes
+
+- [x] Entregar el ZIP limpio de código y la guía final de tres celdas para el dataset y cuaderno nuevos
+- [x] Corregir y validar el bundle Edge para que el ZIP incluya lanzadores, empaquetador, contratos, documentos y guía de tres celdas coherentes
+- [x] Habilitar únicamente FineWeb2 EN/ES, HPLT 2.0 cleaned ES y OpenR1-Math-220k en un paquete de construcción Edge autorizado y versionado
+- [x] Verificar los recursos vigentes de Oracle Cloud Free Tier y su viabilidad real para Aethel Edge
+- [x] Corregir el identificador de configuración HPLT rechazado por Kaggle y añadir una prueba preventiva para la construcción Edge
+- [x] Reintentar la construcción Edge sólo en una salida Kaggle inédita, preservando la salida fallida actual sin borrarla
+- [x] Corregir el mínimo inglés incompatible con el límite FineWeb autorizado y rechazar esa incoherencia antes de descargar datos
+- [x] Corregir la validación de listas de banderas OpenR1 y comprobar que sus ejemplos matemáticos verificados contribuyen al mínimo inglés
+- [x] Corregir la incompatibilidad de `trust_remote_code` con `get_dataset_config_names` en la versión datasets de Kaggle y probar el preflight
+- [x] Emitir un único ZIP Edge compatible con Kaggle y sustituir las guías anteriores por el reintento mínimo
+- [x] Sustituir FineWeb2 EN inválido por FineWeb `sample-10BT` autorizado y fijar su revisión antes del reintento Edge
+- [x] Incorporar el corpus Edge preservado como el único input de datos del cuaderno de entrenamiento, sustituyendo el dataset V1 sin añadir un tercer input
+- [x] Crear el dataset privado reutilizable `aethel-edge-corpus-v1` desde la salida preservada del cuaderno de construcción
+- [x] Preparar y validar un release de código específico para el primer entrenamiento largo Edge, con guía de exactamente tres celdas y sin iniciarlo
+- [x] Verificar en Kaggle que el cuaderno de entrenamiento tiene exactamente los inputs de código Edge y `aethel-edge-corpus-v1`
+- [x] Solicitar autorización explícita separada antes de ejecutar la primera sesión GPU Edge
+- [x] Corregir y validar la resolución del root de shards en la CELDA 1 Edge tras el fallo seguro de conteo observado en Kaggle
+- [x] Inventariar de forma no destructiva los nombres y rutas de archivos expuestos por la versión montada de `aethel-edge-corpus-v1`
+- [x] Adaptar y validar el lector Edge y la verificación de integridad para los shards `.jsonl` descomprimidos por Kaggle
+- [x] Confirmar la ejecución y preservación mediante Save Version de la primera sesión GPU Edge autorizada
+- [x] Preparar y validar la evaluación aislada autorizada del checkpoint Edge `latest.pt` sin reanudar entrenamiento
+- [ ] Crear el dataset privado `aethel-edge-phase1-artifacts-v1` desde la salida preservada y ejecutar la evaluación Edge aislada autorizada
+- [x] Crear el dataset privado `aethel-edge-phase1-artifacts-v1` desde la salida preservada; queda pendiente ejecutar la evaluación aislada autorizada
+- [x] Corregir el preflight de evaluación para seleccionar el checkpoint canónico y excluir la copia extraída del TAR en Kaggle
+- [ ] Entregar las celdas completas de evaluación Edge directamente en el chat para copia manual
+- [ ] Actualizar el repositorio Aethel con código, documentación y registro verificable de la sesión Edge preservada
+- [ ] Definir y aplicar un mecanismo compatible para almacenar los pesos Edge grandes sin exceder los límites de GitHub

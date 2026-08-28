@@ -24,7 +24,16 @@ if HAS_TRITON:
         tl.store(out_ptr + offsets, x * tl.sigmoid(x.to(tl.float32)) * y, mask=mask)
 
     @triton.jit
-    def _causal_decode_kernel(q_ptr, k_ptr, v_ptr, out_ptr, seq_len, head_dim: tl.constexpr, max_seq: tl.constexpr):
+    def _causal_decode_kernel(
+        q_ptr,
+        k_ptr,
+        v_ptr,
+        out_ptr,
+        seq_len,
+        head_dim: tl.constexpr,
+        max_seq: tl.constexpr,
+        scale: tl.constexpr,
+    ):
         program = tl.program_id(0)
         offsets_s = tl.arange(0, max_seq)
         offsets_d = tl.arange(0, head_dim)
@@ -33,7 +42,7 @@ if HAS_TRITON:
         matrix_offsets = base + offsets_s[:, None] * head_dim + offsets_d[None, :]
         mask = (offsets_s[:, None] < seq_len) & (offsets_d[None, :] < head_dim)
         keys = tl.load(k_ptr + matrix_offsets, mask=mask, other=0.0)
-        scores = tl.sum(keys * q[None, :], axis=1) * (1.0 / tl.sqrt(head_dim.to(tl.float32)))
+        scores = tl.sum(keys * q[None, :], axis=1) * scale
         scores = tl.where(offsets_s < seq_len, scores, float("-inf"))
         weights = tl.softmax(scores)
         values = tl.load(v_ptr + matrix_offsets, mask=mask, other=0.0)
@@ -48,7 +57,9 @@ if HAS_TRITON:
         out_ptr,
         seq_len,
         head_dim: tl.constexpr,
+        max_seq: tl.constexpr,
         block_n: tl.constexpr,
+        scale: tl.constexpr,
     ):
         """Un programa por (batch*head, token de consulta), con softmax online.
 
@@ -64,9 +75,8 @@ if HAS_TRITON:
         running_max = float("-inf")
         running_sum = 0.0
         accumulator = tl.zeros((head_dim,), dtype=tl.float32)
-        scale = 1.0 / tl.sqrt(head_dim.to(tl.float32))
 
-        for start_n in range(0, seq_len, block_n):
+        for start_n in range(0, max_seq, block_n):
             offsets_n = start_n + tl.arange(0, block_n)
             matrix_offsets = (
                 batch_head * seq_len * head_dim
@@ -140,7 +150,16 @@ def causal_decode_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, *
         k_flat = k.contiguous().view(batch * heads, seq_len, head_dim)
         v_flat = v.contiguous().view(batch * heads, seq_len, head_dim)
         output = torch.empty_like(q_flat)
-        _causal_decode_kernel[(batch * heads,)](q_flat, k_flat, v_flat, output, seq_len, head_dim=head_dim, max_seq=2048)
+        _causal_decode_kernel[(batch * heads,)](
+            q_flat,
+            k_flat,
+            v_flat,
+            output,
+            seq_len,
+            head_dim=head_dim,
+            max_seq=2048,
+            scale=head_dim ** -0.5,
+        )
         return output.view(batch, heads, 1, head_dim)
     if require_triton:
         raise RuntimeError("la decodificación GPU de Aethel exige Triton y CUDA; no se permite fallback PyTorch en producción")
@@ -196,7 +215,9 @@ def causal_prefill_experimental(
             output,
             sequence_length,
             head_dim=head_dim,
+            max_seq=triton.next_power_of_2(sequence_length),
             block_n=64,
+            scale=head_dim ** -0.5,
             num_warps=4,
         )
         return output.view(batch, heads, sequence_length, head_dim)

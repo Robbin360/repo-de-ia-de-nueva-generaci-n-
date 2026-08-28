@@ -1,0 +1,86 @@
+{
+  "schema": "aethel-d1a-router-diagnostic-evidence/v1",
+  "classification": "experimental-train-only-router-diagnostic",
+  "source_release": "d1a-v1-router-baseline-train-only",
+  "source_mount_version_observed": 10,
+  "dataset_required": "aethel-nextgen-data-v1",
+  "status": "D1A_DIAGNOSTIC_COMPLETE",
+  "summary_status": "D1A_METRICS_SUMMARIZED",
+  "run": {
+    "initialization": "fresh",
+    "steps": 768,
+    "step_range": {
+      "first": 1,
+      "last": 768
+    },
+    "tokens_seen_final": 1572864,
+    "world_size": 1,
+    "device_observed": "cuda"
+  },
+  "config": {
+    "vocab_size": 32000,
+    "dim": 512,
+    "layers": 4,
+    "heads": 8,
+    "kv_heads": 2,
+    "experts": 8,
+    "active_experts": 2,
+    "max_seq_len": 1024,
+    "router_bias_step": 0.05,
+    "router_bias_limit": 0.5,
+    "require_triton": false
+  },
+  "loss": {
+    "count": 768,
+    "minimum": 7.6483154296875,
+    "mean": 9.25997258288165,
+    "maximum": 10.438220977783203
+  },
+  "router_health": {
+    "healthy_steps": 78,
+    "unhealthy_steps": 690
+  },
+  "layers": [
+    {
+      "layer": 0,
+      "entropy": {"minimum": 0.3333333432674408, "mean": 0.5263889875883857, "maximum": 0.9803731441497803},
+      "imbalance": {"minimum": 0.02777099609375, "mean": 0.1494311491648356, "maximum": 0.1875},
+      "max_load": {"minimum": 0.17138671875, "mean": 0.44771480560302734, "maximum": 0.5},
+      "bias": {"minimum": -0.4296034574508667, "maximum": 0.2594575881958008, "max_abs": 0.4296034574508667}
+    },
+    {
+      "layer": 1,
+      "entropy": {"minimum": 0.3333333432674408, "mean": 0.4947705749267091, "maximum": 0.8703710436820984},
+      "imbalance": {"minimum": 0.08013916015625, "mean": 0.15708510080973306, "maximum": 0.1875},
+      "max_load": {"minimum": 0.2490234375, "mean": 0.4712575276692708, "maximum": 0.5},
+      "bias": {"minimum": -0.24481578171253204, "maximum": 0.2894972264766693, "max_abs": 0.2894972264766693}
+    },
+    {
+      "layer": 2,
+      "entropy": {"minimum": 0.3333333432674408, "mean": 0.44974404115540284, "maximum": 0.8179821968078613},
+      "imbalance": {"minimum": 0.07977294921875, "mean": 0.16579103469848633, "maximum": 0.1875},
+      "max_load": {"minimum": 0.276123046875, "mean": 0.48352305094401044, "maximum": 0.5},
+      "bias": {"minimum": -0.4068690538406372, "maximum": 0.3944815695285797, "max_abs": 0.4068690538406372}
+    },
+    {
+      "layer": 3,
+      "entropy": {"minimum": 0.3333333432674408, "mean": 0.44888315291609615, "maximum": 0.7704649567604065},
+      "imbalance": {"minimum": 0.09820556640625, "mean": 0.16601967811584473, "maximum": 0.1875},
+      "max_load": {"minimum": 0.279296875, "mean": 0.4853636423746745, "maximum": 0.5},
+      "bias": {"minimum": -0.38858479261398315, "maximum": 0.33461540937423706, "max_abs": 0.38858479261398315}
+    }
+  ],
+  "limits": {
+    "checkpoint_loaded": false,
+    "raw_corpus_read": false,
+    "holdout_content_read": false,
+    "network_requests": 0,
+    "promotion_authorized": false
+  },
+  "interpretation_limits": [
+    "Esta es una única ventana D1A train-only desde inicialización nueva; no es benchmark ni candidato promocionable.",
+    "No se usó holdout EN/ES para selección, comparación o promoción.",
+    "checkpoint_loaded=false acredita que no se cargó un checkpoint de entrada; no acredita por sí solo el estado de persistencia de una salida D1A nueva.",
+    "Los valores observados no establecen causalidad para la brecha EN/ES ni autorizan D1B, D2, D3, serving, Edge o Pro."
+  ]
+}

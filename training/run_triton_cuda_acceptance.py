@@ -39,6 +39,23 @@ def git_commit() -> str:
         return "unavailable"
 
 
+def source_release() -> dict:
+    """Lee la identidad inmutable del bundle cuando Kaggle ha extraído código sin `.git`."""
+    marker = ROOT / "training" / "aethel_kaggle_source_release.json"
+    if not marker.is_file():
+        return {"status": "unavailable", "reason": "source release marker is absent"}
+    try:
+        payload = json.loads(marker.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        return {"status": "invalid", "reason": f"{type(error).__name__}: {error}"}
+    return {
+        "status": "available",
+        "schema": payload.get("schema"),
+        "release": payload.get("release"),
+        "training_authorized": payload.get("training_authorized"),
+    }
+
+
 def write_report(path: Path, report: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -101,6 +118,7 @@ def main() -> int:
     report: dict = {
         "purpose": "Aethel Triton CUDA acceptance evidence",
         "commit": git_commit(),
+        "source_release": source_release(),
         "platform": platform.platform(),
         "torch": torch.__version__,
         "triton_importable": HAS_TRITON,

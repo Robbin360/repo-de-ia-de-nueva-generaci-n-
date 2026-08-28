@@ -14,11 +14,25 @@ with tempfile.TemporaryDirectory() as temporary:
     packaged = root / "packaged.pt"
     raw = root / "legacy_raw.pth"
     state = {"core.embedding.weight": torch.zeros(4, 3)}
-    torch.save({"model": state, "config": {"dim": 3}, "step": 7, "tokenizer": "/data/tokenizer.json"}, packaged)
+    torch.save(
+        {
+            "model": state,
+            "config": {"dim": 3},
+            "step": 7,
+            "tokenizer": "/data/tokenizer.json",
+            "optimizer": {},
+            "scaler": {},
+            "rng_state": {},
+            "runtime_state": {},
+            "resume_contract": {},
+        },
+        packaged,
+    )
     torch.save(state, raw)
 
     report = inspect_checkpoint(packaged, require_reproducible=True)
     assert report["reproducible_resume"] is True
+    assert report["faithful_resume_missing"] == []
     assert report["parameter_count"] == 12
     assert report["step"] == 7
 

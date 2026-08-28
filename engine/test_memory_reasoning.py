@@ -28,9 +28,13 @@ def main() -> None:
         tokens = torch.tensor([[1, 2, 3, 4, 5, 6]], dtype=torch.long)
         targets = torch.tensor([[2, 3, 4, 5, 6, 7]], dtype=torch.long)
         rock_before = model.rock.stable_projection.weight.detach().clone()
+        memory_state_pointer = model.memory_state.data_ptr()
         _, loss, _ = model(tokens, targets)
         assert loss is not None and torch.isfinite(loss)
         model.observe(tokens, salience=0.8)
+        assert model.memory_state.device.type == "cpu"
+        assert model.memory_state.data_ptr() == memory_state_pointer
+        assert model.liquid.hebbian_trace.device.type == "cpu"
         _, _, metrics = model(tokens, targets)
         manifest = model.export_memory_manifest()
         assert manifest["episodic_records"] == 1

@@ -1,0 +1,71 @@
+{
+  "schema": "aethel-e0-v8-d0-evidence/v1",
+  "purpose": "Evidencia estática auditada para una comprobación D0 de solo lectura; no contiene pesos, shards ni texto de holdout.",
+  "e0_release": "e0-v8-canonical-cuda-device-check",
+  "execution_scope": "experimental-pytorch-fallback-not-promotable",
+  "training": {
+    "completed_steps": 4992,
+    "tokens_seen_final": 10223616,
+    "device": "cuda",
+    "world_size": 1,
+    "parameters_trainable": 97154564,
+    "loss_first": 10.422280311584473,
+    "loss_last": 7.821859836578369,
+    "loss_minimum": 6.273062705993652,
+    "loss_minimum_step": 3850
+  },
+  "checkpoint": {
+    "latest_name": "latest.pt",
+    "final_step": 4992,
+    "tensor_count": 150,
+    "parameter_count": 113539140,
+    "metadata_missing": [],
+    "reproducible_resume_declared": true,
+    "retained_snapshots": [
+      "step_00004608.pt",
+      "step_00004800.pt",
+      "step_00004992.pt"
+    ]
+  },
+  "dataset_contract": {
+    "dataset_id": "aethel-knowledge-reasoning-bilingual-v1",
+    "package_manifest_sha256": "91cfd0e2b14ba6a863143f17ff85629e5f28c88cf13b09627ab8ef34bc78435a",
+    "counts": {
+      "holdout:en": 989,
+      "holdout:es": 988,
+      "train:en": 19011,
+      "train:es": 19012
+    },
+    "tokenizer_sha256": "4a3608e4e45c9117415d1f4fa236aebe20771dc3a3ce85760d9fb9d218fa0815",
+    "holdout_excluded_from_tokenizer": true
+  },
+  "holdout": {
+    "split": "prepared_validation_holdout",
+    "segments_per_language": 256,
+    "en": {
+      "loss": 7.771877005696297,
+      "perplexity": 2372.921097307039
+    },
+    "es": {
+      "loss": 10.774345595389605,
+      "perplexity": 47779.19608484159
+    }
+  },
+  "router": {
+    "healthy_steps": 156,
+    "unhealthy_steps": 4836,
+    "final_healthy": false,
+    "final_max_imbalance": 0.16326904296875,
+    "final_min_entropy": 0.47724199295043945,
+    "global_min_entropy": 0.3333333432674408,
+    "global_max_imbalance": 0.1875
+  },
+  "d0_limits": {
+    "gpu_used": false,
+    "checkpoint_loaded": false,
+    "raw_corpus_read": false,
+    "holdout_content_read": false,
+    "network_requests": 0,
+    "promotion_authorized": false
+  }
+}

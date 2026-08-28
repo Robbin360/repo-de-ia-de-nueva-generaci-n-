@@ -1,0 +1,55 @@
+{
+  "schema": "aethel-d1b-router-diagnostic-evidence/v1",
+  "evidence_classification": "user-provided-closing-log-summary",
+  "diagnostic_status": "D1B_DIAGNOSTIC_COMPLETE",
+  "source_release": "d1b-v1-router-bias-step-001-train-only",
+  "source_mount_observed": "(11)",
+  "scope": {
+    "purpose": "Train-only diagnostic of the MoE router from fresh initialization with router_bias_step reduced from 0.05 to 0.01.",
+    "experiment_not_product": true,
+    "benchmark_or_promotion": false
+  },
+  "run": {
+    "steps": 768,
+    "tokens_seen_final": 1572864,
+    "device": "cuda",
+    "world_size": 1,
+    "router_bias_step": 0.01,
+    "router_bias_limit": 0.5,
+    "fresh_initialization_required": true
+  },
+  "loss": {
+    "count": 768,
+    "minimum": 7.6678972244262695,
+    "mean": 9.273529125998417,
+    "maximum": 10.441325187683105
+  },
+  "router_health": {
+    "healthy_steps": 44,
+    "unhealthy_steps": 724,
+    "healthy_step_percent": 5.729166,
+    "unhealthy_step_percent": 94.270833,
+    "minimum_entropy_observed": 0.3333333432674408,
+    "maximum_imbalance_observed": 0.1875,
+    "conclusion": "unhealthy"
+  },
+  "limits_confirmed": {
+    "checkpoint_loaded": false,
+    "holdout_content_read": false,
+    "network_requests": 0,
+    "promotion_authorized": false,
+    "raw_corpus_read": false
+  },
+  "comparison_to_d1a": {
+    "d1a_healthy_steps": 78,
+    "d1b_healthy_steps": 44,
+    "interpretation": "The D1B bias-step change did not satisfy the router-health gate; this is a diagnostic comparison only, not a candidate-selection result."
+  },
+  "artifact_boundaries": {
+    "weights_or_checkpoints_inspected": false,
+    "outputs_or_checkpoints_moved": false,
+    "holdout_evaluated": false,
+    "d2_or_d3_authorized": false,
+    "serving_authorized": false
+  }
+}

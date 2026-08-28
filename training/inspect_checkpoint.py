@@ -33,6 +33,8 @@ def inspect_checkpoint(path: Path, require_reproducible: bool = False) -> dict[s
     state, origin = _state_dict(payload)
     required = ("config", "step", "tokenizer")
     missing_metadata = [field for field in required if not isinstance(payload, dict) or field not in payload]
+    faithful_required = ("optimizer", "scaler", "rng_state", "runtime_state", "resume_contract")
+    faithful_resume_missing = [field for field in faithful_required if not isinstance(payload, dict) or field not in payload]
     shapes = {key: list(value.shape) for key, value in state.items()}
     report: dict[str, Any] = {
         "path": str(path.resolve()),
@@ -41,16 +43,17 @@ def inspect_checkpoint(path: Path, require_reproducible: bool = False) -> dict[s
         "parameter_count": int(sum(value.numel() for value in state.values())),
         "missing_metadata": missing_metadata,
         "sample_shapes": dict(list(shapes.items())[:20]),
-        "reproducible_resume": origin == "packaged" and not missing_metadata,
+        "faithful_resume_missing": faithful_resume_missing,
+        "reproducible_resume": origin == "packaged" and not missing_metadata and not faithful_resume_missing,
     }
     if isinstance(payload, dict) and isinstance(payload.get("config"), dict):
         report["config"] = payload["config"]
     if isinstance(payload, dict) and "step" in payload:
         report["step"] = int(payload["step"])
     if require_reproducible and not report["reproducible_resume"]:
-        details = ", ".join(missing_metadata) if missing_metadata else "payload sin empaquetar"
+        details = ", ".join(missing_metadata + faithful_resume_missing) if missing_metadata or faithful_resume_missing else "payload sin empaquetar"
         raise ValueError(
-            "No se permite reanudar: el checkpoint necesita model, config, step y tokenizer verificables "
+            "No se permite reanudar fielmente: el checkpoint necesita pesos, metadatos, optimizador, scaler, RNG, estado runtime y contrato verificables "
             f"({details}). Inspección disponible, carga bloqueada."
         )
     return report

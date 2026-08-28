@@ -6,6 +6,7 @@ Espacio de Trabajo Global. No afirma consciencia; expone estados medibles.
 """
 from __future__ import annotations
 
+import copy
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +17,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from aethel_model import AethelConfig, AethelModel
+from router_auxiliary import add_router_auxiliary_loss, validate_router_aux_loss_weight, validate_router_jitter_noise
 
 
 @dataclass
@@ -33,6 +35,9 @@ class NextGenConfig:
     memory_decay: float = 0.995
     router_bias_step: float = 0.05
     router_bias_limit: float = 0.5
+    router_aux_loss_weight: float = 0.01
+    router_entropy_loss_weight: float = 0.0
+    router_jitter_noise: float = 0.0
     lora_rank: int = 0
     lora_alpha: float = 16.0
     lora_freeze_base: bool = True
@@ -44,7 +49,7 @@ class NextGenConfig:
     curiosity_risk_block_threshold: float = 0.70
 
     def model_config(self) -> AethelConfig:
-        return AethelConfig(vocab_size=self.vocab_size, dim=self.dim, n_layers=self.layers, n_heads=self.heads, n_kv_heads=self.kv_heads, n_experts=self.experts, active_experts=self.active_experts, max_seq_len=self.max_seq_len, router_bias_step=self.router_bias_step, router_bias_limit=self.router_bias_limit, require_triton=self.require_triton)
+        return AethelConfig(vocab_size=self.vocab_size, dim=self.dim, n_layers=self.layers, n_heads=self.heads, n_kv_heads=self.kv_heads, n_experts=self.experts, active_experts=self.active_experts, max_seq_len=self.max_seq_len, router_bias_step=self.router_bias_step, router_bias_limit=self.router_bias_limit, router_jitter_noise=self.router_jitter_noise, require_triton=self.require_triton)
 
 
 class LaRoca(nn.Module):
@@ -79,6 +84,10 @@ class ElLiquido(nn.Module):
     @torch.no_grad()
     def observe(self, state: torch.Tensor, salience: float, curiosity: Optional[dict] = None) -> None:
         normalized = F.normalize(state.detach().float(), dim=-1).mean(dim=0, keepdim=True)
+        # ``hebbian_trace`` es un buffer del módulo y se mueve junto al modelo.
+        # La traza debe actualizarse en su propio dispositivo/dtype; las copias CPU
+        # sólo corresponden a persistencia episódica, semántica y de sueño.
+        normalized = normalized.to(device=self.hebbian_trace.device, dtype=self.hebbian_trace.dtype)
         self.hebbian_trace.mul_(self.decay).add_(normalized * float(max(0.0, min(1.0, salience))) * (1.0 - self.decay))
         self.version += 1
         if self.snapshot_path:
@@ -528,6 +537,9 @@ class AethelNextGen(nn.Module):
 
     def __init__(self, config: NextGenConfig, memory_path: str | Path = "engine/artifacts/nextgen/episodic_memory.jsonl"):
         super().__init__()
+        config.router_aux_loss_weight = validate_router_aux_loss_weight(config.router_aux_loss_weight)
+        config.router_entropy_loss_weight = validate_router_aux_loss_weight(config.router_entropy_loss_weight)
+        config.router_jitter_noise = validate_router_jitter_noise(config.router_jitter_noise)
         self.config = config
         self.core = AethelModel(config.model_config())
         self.rock = LaRoca(config.dim)
@@ -543,6 +555,7 @@ class AethelNextGen(nn.Module):
         self.adaptive_refinement = RefinamientoAdaptativo(config.dim, config.adaptive_refinement_steps, config.adaptive_refinement_threshold) if config.adaptive_refinement_steps else None
         self.memory_to_core = nn.Linear(config.dim, config.dim, bias=False)
         self.register_buffer("memory_state", torch.zeros(1, config.dim), persistent=False)
+        self._pending_memory_state: torch.Tensor | None = None
         self.lora_config: dict | None = None
         self.last_metrics: dict = {"memory_hits": 0, "memory_records": len(self.memory.records), "semantic_records": len(self.semantic_memory.records), "replay_records": 0, "pillar": "Aethel NextGen"}
         if config.lora_rank:
@@ -570,7 +583,10 @@ class AethelNextGen(nn.Module):
         return {**self.lora_config, "parameters_total": total, "parameters_trainable": trainable, "trainable_fraction": trainable / total}
 
     def reset_session(self) -> None:
-        self.memory_state = torch.zeros_like(self.memory_state)
+        # Mantiene la identidad del buffer registrado y, con ella, su dispositivo.
+        # Una reasignación puede sustituir el tensor que `Module.to(...)` ya movió.
+        self.memory_state.zero_()
+        self._pending_memory_state = None
         self.last_metrics = {"memory_hits": 0, "memory_records": len(self.memory.records), "semantic_records": len(self.semantic_memory.records), "replay_records": len(self.sleep.replay), "pillar": "Aethel NextGen"}
 
     def forward(self, tokens: torch.Tensor, targets: Optional[torch.Tensor] = None):
@@ -593,11 +609,19 @@ class AethelNextGen(nn.Module):
         else:
             adaptive_metrics = {"enabled": False, "max_steps": 0, "selected": 0, "batch": int(tokens.size(0)), "effective_token_steps": 0, "fraction": 0.0, "mean_difficulty": 0.0}
             adaptive_probability = torch.zeros((), device=tokens.device)
-        self.memory_state = (working + global_context).mean(dim=0, keepdim=True).detach()
+        # `memory_state` participa como entrada de la memoria de trabajo. Mutarlo
+        # dentro de este forward invalidaría el tensor guardado por autograd; se
+        # deja una actualización desconectada pendiente para confirmarla después de
+        # backward en el entrenador.
+        next_memory_state = (working + global_context).mean(dim=0, keepdim=True)
+        self._pending_memory_state = next_memory_state.detach().to(device=self.memory_state.device, dtype=self.memory_state.dtype)
         logits, aux_loss, _ = self.core(tokens, memory_state=self.memory_to_core(global_context))
+        entropy_loss = self.core.last_router_entropy_loss
         loss = None
         if targets is not None:
-            loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), targets.reshape(-1)) + 0.01 * aux_loss
+            base_loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), targets.reshape(-1))
+            loss = add_router_auxiliary_loss(base_loss, aux_loss, weight=self.config.router_aux_loss_weight)
+            loss = loss + self.config.router_entropy_loss_weight * entropy_loss
             if self.config.adaptive_compute_penalty and self.adaptive_refinement is not None:
                 loss = loss + self.config.adaptive_compute_penalty * adaptive_probability
         priority, surprise = self.neuromodulation(working, loss)
@@ -613,16 +637,24 @@ class AethelNextGen(nn.Module):
             # La contradicción factual sigue en cero hasta incorporar una fuente
             # verificable; el progreso sólo captura reducción de incertidumbre local.
             curiosity = self.curiosity.assess(CuriositySignals(uncertainty=uncertainty, novelty=novelty, contradiction=0.0, expected_progress=progress, risk=0.0, cost=0.0, permitted=True)).to_dict()
-        self.last_metrics.update({"memory_hits": self.last_metrics.get("memory_hits", 0) + memory_hit, "memory_records": len(self.memory.records), "semantic_records": len(self.semantic_memory.records), "replay_records": len(self.sleep.replay), "aux_loss": float(aux_loss.detach().cpu()), "neuromodulation": float(priority.cpu()), "surprise": float(surprise.cpu()), "curiosity": curiosity, "adaptive_compute": adaptive_metrics, "reasoning_trace": {"protocol": ["recuperación", "integración", "refinamiento presupuestado", "predicción"], "episodic": episodic_trace, "semantic": semantic_trace, "workspace_weights": dict(self.workspace.last_weights), "internal_chain_of_thought_exposed": False}, "pillars": {"La Roca": True, "El Líquido": True, "Ciclo de Sueño": True, "Neuromodulación": True, "Curiosidad funcional": self.curiosity is not None, "Espacio de Trabajo Global": True}})
+        self.last_metrics.update({"memory_hits": self.last_metrics.get("memory_hits", 0) + memory_hit, "memory_records": len(self.memory.records), "semantic_records": len(self.semantic_memory.records), "replay_records": len(self.sleep.replay), "aux_loss": float(aux_loss.detach().cpu()), "router_entropy_loss": float(entropy_loss.detach().cpu()), "router_entropy_loss_weight": self.config.router_entropy_loss_weight, "router_jitter_noise": self.config.router_jitter_noise, "router_selection_jitter_noise": self.core.layers[0].feed_forward.last_routing_stats.get("selection_jitter_noise", 0.0), "neuromodulation": float(priority.cpu()), "surprise": float(surprise.cpu()), "curiosity": curiosity, "adaptive_compute": adaptive_metrics, "reasoning_trace": {"protocol": ["recuperación", "integración", "refinamiento presupuestado", "predicción"], "episodic": episodic_trace, "semantic": semantic_trace, "workspace_weights": dict(self.workspace.last_weights), "internal_chain_of_thought_exposed": False}, "pillars": {"La Roca": True, "El Líquido": True, "Ciclo de Sueño": True, "Neuromodulación": True, "Curiosidad funcional": self.curiosity is not None, "Espacio de Trabajo Global": True}})
         return logits, loss, dict(self.last_metrics)
 
     @torch.no_grad()
+    def commit_memory_state(self) -> None:
+        """Aplica la transición de memoria después de backward sin romper autograd."""
+        if self._pending_memory_state is not None:
+            self.memory_state.copy_(self._pending_memory_state)
+            self._pending_memory_state = None
+
+    @torch.no_grad()
     def observe(self, tokens: torch.Tensor, salience: float = 1.0) -> dict:
-        state = self.memory_state.detach().cpu()
-        self.liquid.observe(state, salience, self.last_metrics.get("curiosity"))
-        self.memory.add(state, tokens[0].detach().cpu().tolist(), salience)
-        self.semantic_memory.add(state, salience)
-        self.sleep.consolidate(state, tokens[0].detach().cpu().tolist(), salience)
+        liquid_state = self.memory_state.detach()
+        self.liquid.observe(liquid_state, salience, self.last_metrics.get("curiosity"))
+        persistent_state = liquid_state.cpu()
+        self.memory.add(persistent_state, tokens[0].detach().cpu().tolist(), salience)
+        self.semantic_memory.add(persistent_state, salience)
+        self.sleep.consolidate(persistent_state, tokens[0].detach().cpu().tolist(), salience)
         self.memory.flush()
         self.semantic_memory.flush()
         self.last_metrics.update({"memory_records": len(self.memory.records), "semantic_records": len(self.semantic_memory.records), "replay_records": len(self.sleep.replay), "liquid_version": self.liquid.version})
@@ -637,3 +669,82 @@ class AethelNextGen(nn.Module):
 
     def export_memory_manifest(self) -> dict:
         return {"episodic_records": len(self.memory.records), "episodic": {"capacity": self.memory.capacity, "path": str(self.memory.path)}, "semantic": self.semantic_memory.manifest(), "replay": self.sleep.manifest(), "liquid": self.liquid.manifest(), "curiosity": self.curiosity.manifest() if self.curiosity is not None else {"enabled": False, "external_action_enabled": False}, "reasoning_protocol": ["recuperación", "integración", "predicción"]}
+
+    def export_resume_runtime_state(self) -> dict:
+        """Exporta el estado mutable que ``state_dict`` no incluye por diseño.
+
+        El payload se guarda dentro de ``latest.pt`` al finalizar una frontera segura
+        de optimizador. No contiene corpus ni habilita acciones externas.
+        """
+        curiosity: dict | None = None
+        if self.curiosity is not None:
+            curiosity = {
+                "assessments": [decision.to_dict() for decision in self.curiosity.assessments],
+                "uncertainty_by_context": dict(self.curiosity.uncertainty_by_context),
+            }
+        return {
+            "schema": "aethel-nextgen-runtime-state/v1",
+            "memory_state": self.memory_state.detach().cpu().clone(),
+            "liquid": {
+                "hebbian_trace": self.liquid.hebbian_trace.detach().cpu().clone(),
+                "version": int(self.liquid.version),
+                "curiosity_events": int(self.liquid.curiosity_events),
+            },
+            "episodic_records": copy.deepcopy(self.memory.records),
+            "semantic_records": copy.deepcopy(self.semantic_memory.records),
+            "sleep": {
+                "replay": copy.deepcopy(self.sleep.replay),
+                "consolidation_step": int(self.sleep.consolidation_step),
+            },
+            "curiosity": curiosity,
+        }
+
+    @torch.no_grad()
+    def restore_resume_runtime_state(self, state: dict) -> None:
+        """Restaura únicamente un estado previamente emitido por Aethel.
+
+        La restauración valida forma, capacidades y esquema antes de mutar buffers o
+        memorias. Un checkpoint antiguo sin este bloque queda explícitamente no apto
+        para reanudación fiel, aunque sus pesos aún puedan inspeccionarse.
+        """
+        if state.get("schema") != "aethel-nextgen-runtime-state/v1":
+            raise ValueError("El checkpoint no contiene un estado runtime Aethel compatible para reanudar.")
+        memory_state = state.get("memory_state")
+        liquid = state.get("liquid")
+        sleep = state.get("sleep")
+        if not isinstance(memory_state, torch.Tensor) or tuple(memory_state.shape) != tuple(self.memory_state.shape):
+            raise ValueError("La forma de memory_state del checkpoint no coincide con el modelo activo.")
+        if not isinstance(liquid, dict) or not isinstance(liquid.get("hebbian_trace"), torch.Tensor):
+            raise ValueError("El checkpoint no contiene la traza líquida requerida para reanudar.")
+        if tuple(liquid["hebbian_trace"].shape) != tuple(self.liquid.hebbian_trace.shape):
+            raise ValueError("La forma de la traza líquida no coincide con el modelo activo.")
+        episodic = state.get("episodic_records")
+        semantic = state.get("semantic_records")
+        if not isinstance(episodic, list) or not isinstance(semantic, list) or len(episodic) > self.memory.capacity or len(semantic) > self.semantic_memory.capacity:
+            raise ValueError("Las memorias del checkpoint exceden la capacidad configurada o son inválidas.")
+        if not isinstance(sleep, dict) or not isinstance(sleep.get("replay"), list) or len(sleep["replay"]) > self.sleep.capacity:
+            raise ValueError("El replay del checkpoint excede la capacidad configurada o es inválido.")
+        self.memory_state.copy_(memory_state.to(device=self.memory_state.device, dtype=self.memory_state.dtype))
+        self.liquid.hebbian_trace.copy_(liquid["hebbian_trace"].to(device=self.liquid.hebbian_trace.device, dtype=self.liquid.hebbian_trace.dtype))
+        self.liquid.version = int(liquid.get("version", 0))
+        self.liquid.curiosity_events = int(liquid.get("curiosity_events", 0))
+        self.memory.records = copy.deepcopy(episodic)
+        self.semantic_memory.records = copy.deepcopy(semantic)
+        self.sleep.replay = copy.deepcopy(sleep["replay"])
+        self.sleep.consolidation_step = int(sleep.get("consolidation_step", 0))
+        curiosity = state.get("curiosity")
+        if curiosity is not None:
+            if self.curiosity is None or not isinstance(curiosity, dict):
+                raise ValueError("El estado de curiosidad no coincide con la configuración activa.")
+            assessments = curiosity.get("assessments", [])
+            contexts = curiosity.get("uncertainty_by_context", {})
+            if not isinstance(assessments, list) or not isinstance(contexts, dict) or len(assessments) > self.curiosity.assessment_capacity or len(contexts) > self.curiosity.assessment_capacity:
+                raise ValueError("El estado de curiosidad excede la capacidad configurada o es inválido.")
+            restored: list[CuriosityDecision] = []
+            for item in assessments:
+                if not isinstance(item, dict) or not isinstance(item.get("signals"), dict):
+                    raise ValueError("Una evaluación de curiosidad del checkpoint es inválida.")
+                signals = CuriositySignals(**item["signals"])
+                restored.append(CuriosityDecision(float(item["priority"]), str(item["action"]), bool(item["blocked"]), bool(item["requires_approval"]), tuple(str(reason) for reason in item.get("reasons", [])), signals))
+            self.curiosity.assessments = restored
+            self.curiosity.uncertainty_by_context = {str(key): float(value) for key, value in contexts.items()}

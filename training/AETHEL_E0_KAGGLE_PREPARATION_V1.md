@@ -1,6 +1,6 @@
 # Preparación Controlada de Aethel Seed E0 para Kaggle
 
-**Estado:** guía de preparación. No crea ni actualiza un Dataset, no genera un bundle, no reserva GPU y no inicia entrenamiento.
+**Estado:** V5 fue un intento E0 real abortado por un desfase CPU/CUDA antes del primer checkpoint. V6 corrigió la ruta `observe`; sus smoketests V6 y V7 se bloquearon por comparar el dispositivo implícito `cuda` con el dispositivo materializado `cuda:0`, una igualdad no canónica que no demuestra por sí sola que el buffer estuviera en CPU. V7 también preserva el buffer registrado durante `forward`. V8 conserva esa protección y compara tipo, índice CUDA e identidad del buffer. El preflight y el smoke CUDA V8 se ejecutaron y aprobaron en Kaggle, sin iniciar entrenamiento. Esta guía no crea ni actualiza un Dataset, no reserva GPU y no inicia entrenamiento.
 
 ## Finalidad
 
@@ -17,10 +17,12 @@ Los siguientes archivos están en el repositorio privado y deben tomarse de la m
 | `training/build_kaggle_nextgen_source_bundle.sh` | Construye un `aethel-nextgen-source.tar.gz` sin datos, pesos ni artefactos locales. |
 | `training/run_kaggle_seed_offline.sh` | Impone autorización humana, valida el paquete antes de CUDA, conserva checkpoints y separa holdouts. |
 | `training/AETHEL_SEED_OFFLINE_RUNBOOK_V1.md` | Runbook de ejecución y recuperación. |
-| `training/validate_aethel_knowledge_package.py` | Valida hashes, splits y tokenizer de forma offline. |
+| `training/validate_aethel_knowledge_package.py` | Valida hashes, splits y tokenizer de forma offline, tanto para los `.jsonl.gz` congelados como para la exposición `.jsonl` descomprimida por Kaggle. |
+| `training/aethel_kaggle_decompressed_mount_contract.json` | Contrato de hashes y tamaños de contenido plano, vinculado al hash de `package_manifest.json`; no contiene shards ni datos de entrenamiento. |
 | `training/inspect_local_aethel_host.py` | Inspecciona código, Dataset, salida, CUDA y Triton sin entrenar. |
 | `training/run_triton_cuda_acceptance.py` | Registra aceptación/rechazo de CUDA sin habilitar contratos automáticamente. |
 | `engine/train_aethel_gpu.py` | Entrenador Seed con checkpoint y reanudación. |
+| `engine/test_liquid_device_alignment.py` | Regresión CUDA que confirma que El Líquido actualiza la traza hebbiana en el dispositivo del modelo y persiste copias CPU por separado. |
 | `engine/evaluate_nextgen.py` | Evaluación independiente de holdout inglés/español. |
 | `engine/aethel_model.py` y `engine/triton_bridge.py` | Modelo, contratos y rutas Triton de estado parcial. |
 
@@ -45,11 +47,28 @@ El otro chat puede preparar explicaciones, validar archivos de código y constru
 
 1. **Sesión personal.** Verificar que la navegación opera en My Browser del usuario. Si hay sandbox, login, CAPTCHA o pantalla de conexión, detenerse sin alternativa automática.
 2. **Confirmación por acción.** Antes de crear/actualizar Dataset, adjuntar entradas, editar/crear Notebook, seleccionar GPU, guardar una versión o iniciar una corrida, pedir confirmación explícita e inmediata para esa acción exacta.
-3. **Entrada de datos.** El Dataset debe ser privado. Puede usar el nombre previsto `aethel-nextgen-data-v1`; si el slug final difiere del predeterminado, fijar `AETHEL_DATA_DIR` a su ruta real de `/kaggle/input/<slug>`. El contenido debe conservar la estructura raíz del paquete congelado y los 22 shards bajo `corpus/`.
-4. **Entrada de código.** Generar y subir, también como entrada privada separada, el bundle `aethel-nextgen-source.tar.gz` y su manifiesto desde la misma revisión de `main`. El bundle no sustituye el Dataset de conocimiento.
+3. **Entrada de datos.** El Dataset debe ser privado. Puede usar el nombre previsto `aethel-nextgen-data-v1`; si el slug final difiere del predeterminado, fijar `AETHEL_DATA_DIR` a su ruta real de `/kaggle/input/<slug>`. El contenido debe conservar la estructura raíz del paquete congelado y los 22 shards bajo `corpus/`. Kaggle puede exponer los archivos originales `*.jsonl.gz` como `*.jsonl` descomprimidos; este comportamiento sólo se acepta cuando los 22 tamaños y hashes de contenido plano coinciden con el contrato vinculado al `package_manifest.json` congelado. No se debe renombrar, recomprimir ni volver a subir el Dataset para corregir este caso.
+4. **Entrada de código.** Generar y subir, también como entrada privada separada, el bundle `aethel-nextgen-source.tar.gz` y su manifiesto desde la misma revisión de `main`. Para el siguiente intento se exige exactamente el release `e0-v8-canonical-cuda-device-check`; el selector debe rechazar V3–V7. El bundle no sustituye el Dataset de conocimiento.
 5. **Preflight sin red.** Mantener Internet desactivado. Montar código y datos, ejecutar el validador offline y conservar `package_preflight.json` antes de consultar CUDA.
-6. **Prueba de CUDA/Triton.** Cuando haya un host GPU autorizado, ejecutar primero `training/run_triton_cuda_acceptance.py`. Un resultado `NOT_RUN`, fallo o evidencia parcial no habilita las rutas Triton estrictas.
-7. **E0 sólo con doble autorización.** `AETHEL_RUN_AUTHORIZED=YES` autoriza la corrida y `AETHEL_LAB_FALLBACK_AUTHORIZED=YES` permite exclusivamente un fallback PyTorch experimental mientras Triton estricto siga bloqueado. Sin ambas variables, E0 debe detenerse.
+6. **Prueba CUDA de El Líquido.** El preflight V8 y la celda V8 de regresión ya devolvieron `VERIFIED_LIQUID_CUDA_ALIGNMENT` en Kaggle. Esa evidencia acredita únicamente la alineación de `memory_state` y El Líquido en CUDA; no acredita entrenamiento, checkpoint, evaluación, calidad del modelo ni rutas Triton estrictas.
+7. **Prueba de CUDA/Triton.** La aceptación V4 existente sólo conserva evidencia experimental; un resultado `NOT_RUN`, fallo o evidencia parcial no habilita las rutas Triton estrictas.
+8. **E0 sólo con doble autorización.** `AETHEL_RUN_AUTHORIZED=YES` autoriza la corrida y `AETHEL_LAB_FALLBACK_AUTHORIZED=YES` permite exclusivamente un fallback PyTorch experimental mientras Triton estricto siga bloqueado. Sin ambas variables, E0 debe detenerse.
+
+### Evidencia experimental V4 registrada
+
+El 23 de agosto de 2026, la aceptación aislada del release `e0-v4-triton-constexpr-fix` se ejecutó en Kaggle con 2 × Tesla T4 de 15,360 MiB, CUDA 12.8 y Triton importable. El ejecutor devolvió `PASSED_EXPERIMENTAL`; la evidencia y sus límites se conservan en [`AETHEL_E0_T4X2_TRITON_ACCEPTANCE_V4_2026-08-23.md`](AETHEL_E0_T4X2_TRITON_ACCEPTANCE_V4_2026-08-23.md). Este hito no acepta la ruta Triton estricta, no habilita E0 y no demuestra un modelo entrenado.
+
+### Intento experimental V5 abortado, smoketests V6/V7 bloqueados y smoke V8 aprobado
+
+El release `e0-v5-plaintext-kaggle-e0-launch` añadió soporte explícito para el único formato verificable que exponga Kaggle: todos los shards comprimidos originales o todos los shards `.jsonl` descomprimidos comprobados contra el contrato de contenido plano. El lanzador no acepta mezclar ambos formatos y resuelve los holdouts por separado, sin incorporarlos al entrenamiento.
+
+En Kaggle, V5 completó preflight offline, detección CUDA, micropruebas GPU y comprobación offline de dependencias; llegó a los pasos 1–99 en `cuda:0`. Falló antes del primer guardado programado en el paso 192 con `RuntimeError: Expected all tensors to be on the same device, but found at least two devices, cuda:0 and cpu!` durante `ElLiquido.observe`. Las salidas persistidas incluyen manifiestos, tokenizador y métricas parciales, pero no contienen `latest.pt`, `recovery_receipt.json` ni `checkpoint-*`; por tanto, no existe reanudación V5 ni modelo Seed utilizable.
+
+V6 separó el estado de ejecución de la copia de persistencia: `AethelNextGen.observe` actualiza El Líquido con `memory_state` en el dispositivo del modelo y sólo convierte a CPU la copia destinada a memoria episódica, semántica y Sueño. El preflight V6 real validó el release exacto, los 22 shards, cero red y autorizaciones falsas. Su smoke CUDA, y luego el V7, se bloquearon en la comparación `torch.device("cuda") == torch.device("cuda:0")`; esa comparación es falsa por construcción y no acredita que `memory_state` estuviera en CPU. No hubo entrenamiento, checkpoint ni métrica V6/V7.
+
+V7 eliminó además la reasignación de `memory_state` en `forward`, usando `copy_` bajo `torch.no_grad()`, y cambió `reset_session` a `zero_()` para conservar identidad del buffer. V8 conserva esas protecciones y modifica el smoke para verificar explícitamente `device.type == "cuda"`, el índice de `torch.cuda.current_device()` y el `data_ptr` antes y después de `forward` y `observe`. Las pruebas CPU, compilación Python, sintaxis Bash y formato de diff pasaron localmente. En Kaggle, V8 seleccionó el release exacto y el smoke terminó con `VERIFIED_LIQUID_CUDA_ALIGNMENT`; el buffer y El Líquido permanecieron alineados en CUDA. Esta puerta ya no bloquea E0, pero ninguna otra puerta de evidencia se considera satisfecha por ella.
+
+El bundle privado V8 verificado se genera en `/home/ubuntu/aethel-kaggle-bundles/aethel-nextgen-source.tar.gz`, con SHA-256 `c179817f70256141a7fcc16ca939439495ee2e3fe2be7e5ed95868c0f8c221d6`. Contiene el marcador V8, la corrección y la regresión, y excluye corpus, pesos, checkpoints, bytecode y cachés. Debe subirse únicamente como una **nueva versión privada** de `aethel-nextgen-source-e0-v1`; `aethel-nextgen-data-v1` permanece inalterado.
 
 ## Entorno de Notebook preparado, no autorizado
 
@@ -66,7 +85,7 @@ os.environ["AETHEL_RUN_AUTHORIZED"] = ""
 os.environ["AETHEL_LAB_FALLBACK_AUTHORIZED"] = "NO"
 ```
 
-El lanzador sólo debe invocarse después de la doble autorización correspondiente. Una ejecución E0 válida debe conservar `latest.pt`, `step_*.pt`, `recovery_receipt.json`, `metrics_rank_0.jsonl`, `package_preflight.json`, `checkpoint_inspection.json`, `evaluation_holdout_en.json` y `evaluation_holdout_es.json` en salida privada.
+El lanzador sólo debe invocarse después de la doble autorización correspondiente y después de la regresión CUDA V8 correcta. Una ejecución E0 válida debe conservar `latest.pt`, `step_*.pt`, `recovery_receipt.json`, `metrics_rank_0.jsonl`, `package_preflight.json`, `checkpoint_inspection.json`, `evaluation_holdout_en.json` y `evaluation_holdout_es.json` en salida privada. La presencia aislada de métricas parciales no sustituye ninguno de estos artefactos.
 
 ## Límites de interpretación
 

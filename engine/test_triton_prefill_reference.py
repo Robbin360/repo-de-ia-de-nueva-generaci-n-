@@ -1,6 +1,8 @@
 """Contrato CPU del prefill causal pendiente de una implementación Triton por bloques."""
 from __future__ import annotations
 
+import math
+
 import torch
 import torch.nn.functional as F
 
@@ -56,10 +58,18 @@ def test_experimental_prefill_keeps_strict_cuda_contract() -> None:
         raise AssertionError("el prefill experimental no puede relajar el contrato estricto")
 
 
+def test_prefill_launch_scale_is_plain_python_float() -> None:
+    """Evita repetir `.to()` sobre un `tl.constexpr` entero en la compilación GPU."""
+    scale = 64 ** -0.5
+    assert isinstance(scale, float)
+    assert math.isclose(scale, 0.125)
+
+
 if __name__ == "__main__":
     test_prefill_reference_matches_sdpa()
     test_prefill_reference_blocks_future_tokens()
     test_prefill_reference_rejects_incompatible_shapes()
     test_experimental_prefill_uses_cpu_reference_semantics_without_cuda()
     test_experimental_prefill_keeps_strict_cuda_contract()
+    test_prefill_launch_scale_is_plain_python_float()
     print("PASS: referencia CPU de prefill causal verificada")

@@ -5,6 +5,7 @@ import math
 from typing import Optional, Tuple, List
 from dataclasses import dataclass
 from triton_bridge import causal_decode_attention, fused_swiglu, moe_dispatch_combine_reference, top2_router
+from router_auxiliary import router_balance_auxiliary_loss, router_entropy_regularization_loss
 
 @dataclass
 class AethelConfig:
@@ -20,6 +21,7 @@ class AethelConfig:
     norm_eps: float = 1e-6
     router_bias_step: float = 0.01
     router_bias_limit: float = 0.25
+    router_jitter_noise: float = 0.0
     require_triton: bool = False
 
 
@@ -112,11 +114,13 @@ class SparseMoE(nn.Module):
         
         self.experts = nn.ModuleList([SwiGLU(config.dim, hidden_dim, config.require_triton) for _ in range(config.n_experts)])
         self.last_load = [0.0] * config.n_experts
+        self.last_entropy_loss = torch.zeros((), dtype=torch.float32)
         self.register_buffer("router_bias", torch.zeros(config.n_experts), persistent=True)
         self.register_buffer("load_ema", torch.full((config.n_experts,), 1.0 / config.n_experts), persistent=True)
         self.router_bias_step = config.router_bias_step
         self.router_bias_limit = config.router_bias_limit
-        self.last_routing_stats = {"entropy": 0.0, "max_load": 0.0, "imbalance": 0.0, "bias": [0.0] * config.n_experts}
+        self.router_jitter_noise = config.router_jitter_noise
+        self.last_routing_stats = {"entropy": 0.0, "max_load": 0.0, "imbalance": 0.0, "bias": [0.0] * config.n_experts, "selection_jitter_noise": 0.0}
 
     @torch.no_grad()
     def _update_load_balancer(self, tokens_per_expert: torch.Tensor) -> None:
@@ -134,18 +138,28 @@ class SparseMoE(nn.Module):
             is_cuda=x.is_cuda,
         )
         
-        # Logits del Router
-        router_logits = self.gate(x_flat) + self.router_bias.to(x_flat.dtype)
-        # Probabilidades completas del router (para pérdida auxiliar exacta)
+        # El sesgo sin pérdida sólo decide qué expertos pueden competir. Las
+        # probabilidades, los pesos de combinación y las pérdidas se calculan
+        # sobre logits crudos para que el controlador de balanceo no altere la
+        # semántica del modelo ni amortigüe su señal de gradiente.
+        router_logits = self.gate(x_flat)
+        selection_scores = router_logits + self.router_bias.to(x_flat.dtype)
+        # Ruido sólo en entrenamiento y sólo en la selección: rompe empates
+        # tempranos del top-k sin contaminar las probabilidades densas, los pesos
+        # de combinación, la entropía ni la inferencia determinista.
+        active_jitter = self.router_jitter_noise if self.training else 0.0
+        if active_jitter:
+            selection_scores = selection_scores + torch.randn_like(selection_scores) * active_jitter
         router_probs = F.softmax(router_logits, dim=-1, dtype=torch.float)
         
         # Selección Top-K. El kernel Triton conserva el gradiente del router
         # usando PyTorch durante entrenamiento y acelera top-2 en inferencia.
         if not self.training and self.top_k == 2:
-            topk_weights, selected_experts = top2_router(router_logits, require_triton=self.experts[0].require_triton and x.is_cuda)
+            _, selected_experts = top2_router(selection_scores, require_triton=self.experts[0].require_triton and x.is_cuda)
         else:
-            topk_weights, selected_experts = torch.topk(router_probs, self.top_k, dim=-1)
-            topk_weights = topk_weights / topk_weights.sum(dim=-1, keepdim=True)
+            _, selected_experts = torch.topk(selection_scores, self.top_k, dim=-1)
+        topk_weights = router_probs.gather(dim=-1, index=selected_experts)
+        topk_weights = topk_weights / topk_weights.sum(dim=-1, keepdim=True)
         topk_weights = topk_weights.to(x.dtype)
         
         # Referencia explícita de la semántica que deberá preservar el kernel
@@ -170,11 +184,13 @@ class SparseMoE(nn.Module):
             "max_load": float(tokens_per_expert.max().detach().cpu()),
             "imbalance": float((tokens_per_expert - (1.0 / self.n_experts)).abs().mean().detach().cpu()),
             "bias": [float(value) for value in self.router_bias.detach().cpu()],
+            "selection_jitter_noise": float(active_jitter),
         }
         # Probabilidad promedio asignada a cada experto por el router
         router_prob_per_expert = router_probs.mean(dim=0)
         # Pérdida auxiliar = n_experts * sum(density * prob)
-        aux_loss = self.n_experts * torch.sum(tokens_per_expert * router_prob_per_expert)
+        aux_loss = router_balance_auxiliary_loss(tokens_per_expert, router_prob_per_expert)
+        self.last_entropy_loss = router_entropy_regularization_loss(router_probs)
             
         return final_hidden_states.view(batch_size, seq_len, dim), aux_loss
 
@@ -276,6 +292,7 @@ class AethelModel(nn.Module):
         self.layers = nn.ModuleList([TransformerBlock(config) for _ in range(config.n_layers)])
         self.norm = RMSNorm(config.dim, eps=config.norm_eps)
         self.last_expert_loads = [0.0] * config.n_experts
+        self.last_router_entropy_loss = torch.zeros((), dtype=torch.float32)
         self.output = nn.Linear(config.dim, config.vocab_size, bias=False)
         
         # Tie weights entre embedding y proyector de salida (opcional/estándar)
@@ -313,6 +330,7 @@ class AethelModel(nn.Module):
         freqs_cis = self.freqs_cis[start_pos : start_pos + T]
         
         total_aux_loss = 0.0
+        total_router_entropy_loss = 0.0
         cache_requested = kv_caches is not None
         new_kv_caches = [] if cache_requested else None
 
@@ -320,10 +338,12 @@ class AethelModel(nn.Module):
             cache_i = kv_caches[i] if kv_caches is not None else None
             h, aux_loss, new_cache = layer(h, freqs_cis, kv_cache=cache_i, use_kv_cache=cache_requested)
             total_aux_loss += aux_loss
+            total_router_entropy_loss += layer.feed_forward.last_entropy_loss
             self.last_expert_loads = layer.feed_forward.last_load
             if new_kv_caches is not None:
                 new_kv_caches.append(new_cache)
             
+        self.last_router_entropy_loss = total_router_entropy_loss
         h = self.norm(h)
         output = self.output(h)
         return output, total_aux_loss, new_kv_caches

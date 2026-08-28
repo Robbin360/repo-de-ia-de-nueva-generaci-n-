@@ -1,0 +1,29 @@
+{
+  "dataset_id": "aethel-knowledge-reasoning-bilingual-v1",
+  "package_manifest_sha256": "91cfd0e2b14ba6a863143f17ff85629e5f28c88cf13b09627ab8ef34bc78435a",
+  "plaintext_shards": {
+    "corpus/holdout-en-00000.jsonl": {"bytes": 16188726, "sha256": "fab4232e28acf4217423ee4ae356275de6e76023c2ebd85b1b850ab47bad82ef"},
+    "corpus/holdout-es-00000.jsonl": {"bytes": 11327131, "sha256": "a70d3b0293ff77c134f3abc29634a9e23ab04cacfdc46cde2ddcc0069258f6cf"},
+    "corpus/train-en-00000.jsonl": {"bytes": 33496680, "sha256": "24ec9d825bd1de05f9a9fe6faecdfca0589b8d179522b5adedf3b2036b7a0858"},
+    "corpus/train-en-00001.jsonl": {"bytes": 34366923, "sha256": "1295d017084ed4a6b990e798a2a0844c8d81ca849d1ae0b0e683953f336ad654"},
+    "corpus/train-en-00002.jsonl": {"bytes": 33543312, "sha256": "b5759dcbe70999ab73f6b5092fa8844928ecafd94ff90102897fe1f0c4d44b88"},
+    "corpus/train-en-00003.jsonl": {"bytes": 34255469, "sha256": "329da049c654eca4d18db149c945e9c372cf8e817ceac973cfb804e6ec22184e"},
+    "corpus/train-en-00004.jsonl": {"bytes": 34583212, "sha256": "66d84eaf696c1e5f38b496cc0ac31d956a371ad2dbddff734ef8d1bf1680beac"},
+    "corpus/train-en-00005.jsonl": {"bytes": 32380485, "sha256": "d0fd28dbcf1aabca5907cedc42cbba23242c2e7c2a4e076a77fe926974318d7e"},
+    "corpus/train-en-00006.jsonl": {"bytes": 34533891, "sha256": "98d68af37da6db64703ad97783ac80c95139f0e3a3ccf99f6b4f8222e97b7379"},
+    "corpus/train-en-00007.jsonl": {"bytes": 35373238, "sha256": "4e8e48595c667822881b75757531eae337a026ee265ae710602f8e77cb9942cb"},
+    "corpus/train-en-00008.jsonl": {"bytes": 21453810, "sha256": "aa3557211b8745a76f3e71bcda36ec0975f66749956a25f7c88e0e8fe1847db4"},
+    "corpus/train-en-00009.jsonl": {"bytes": 13371878, "sha256": "2c3248ef95fc84ef60848838ed2e8eeb9e3133da120c168ee400a7278b78bfe6"},
+    "corpus/train-es-00000.jsonl": {"bytes": 26876167, "sha256": "f562e275a031ba78041b4a7f8a6637e8487254772e7232702694243db212ee0a"},
+    "corpus/train-es-00001.jsonl": {"bytes": 32694356, "sha256": "d6f030185a5bb52a5f10605b11b707db02b327af65868b30b70a91d5eddc300a"},
+    "corpus/train-es-00002.jsonl": {"bytes": 24063042, "sha256": "13aad63fb644fc58d5625354a7c9909c465b3f4abf1153db22a15f36f60ff4ea"},
+    "corpus/train-es-00003.jsonl": {"bytes": 23925834, "sha256": "825f8e377a56f384364d0dd1289c3b9e9502976c0d84aea19e7e1315a9f216c7"},
+    "corpus/train-es-00004.jsonl": {"bytes": 10570031, "sha256": "394eccba0a43fab66a7f179a43143fcc461170c4b57f21355aa50c8620e27dc5"},
+    "corpus/train-es-00005.jsonl": {"bytes": 23212333, "sha256": "b19b331676c4cecf607ceae2cc75e7a68b035543ac3a3f72665ddff900f89ca1"},
+    "corpus/train-es-00006.jsonl": {"bytes": 22003736, "sha256": "273eb3f8d83daa06e7f0e7cbd17c13d48e5ba50239480da69cc83714d2ef6713"},
+    "corpus/train-es-00007.jsonl": {"bytes": 24010603, "sha256": "83e42c50e9542fb0f2925099449fa7d1a7cf278296374779fac2175fa48ed330"},
+    "corpus/train-es-00008.jsonl": {"bytes": 24640104, "sha256": "a654929e6997413611a3223b488c90039ad39b84d3ce27e2986c50692d736632"},
+    "corpus/train-es-00009.jsonl": {"bytes": 12008923, "sha256": "39ee4507f9979abab05f4ebc9806496eb4bea101dc3998061884755aa9cdfa46"}
+  },
+  "schema": "aethel-kaggle-decompressed-mount/v1"
+}

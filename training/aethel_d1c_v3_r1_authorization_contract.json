@@ -1,0 +1,36 @@
+{
+  "schema": "aethel-d1c-v3-r1-authorization-contract/v1",
+  "status": "PREPARATION_ONLY_ALL_GATES_CLOSED",
+  "experiment_id": "D1C-V3-R1",
+  "source_release": "d1c-v3-retry-cell-train-only",
+  "purpose": "Describe the independent, immediate approvals required before any future D1C V3-R1 retry. This local contract does not authorize notebook changes, GPU use, Dataset access, training, output/checkpoint access, Save Version, holdout evaluation, promotion, or serving.",
+  "experiment_contract": {
+    "fresh_initialization_required": true,
+    "resume_forbidden": true,
+    "e0_weights_forbidden": true,
+    "d1c_v1_artifacts_forbidden": true,
+    "train_only_required": true,
+    "holdout_en_es_sealed": true,
+    "steps": 768,
+    "seed": 17,
+    "router_bias_step": 0.05,
+    "router_aux_loss_weight": 0.05,
+    "runtime": "pytorch-fallback-experimental",
+    "triton_strict_blocked": true,
+    "fresh_work_and_output_roots_required": true
+  },
+  "authorizations": {
+    "notebook_edit": false,
+    "blocked_cell_verification": false,
+    "gpu_selection_and_use": false,
+    "exact_retry_run": false,
+    "pytorch_fallback": false,
+    "save_version": false,
+    "safe_summary_review": false,
+    "outputs_or_checkpoints_access": false,
+    "holdout_evaluation": false,
+    "promotion_or_serving": false
+  },
+  "approval_rule": "Every authorization is independent, must be explicit and immediate, and a false value blocks the following action. No authorization is inferred from code availability, a mounted release, a blocked-cell check, or a prior D1C attempt.",
+  "current_effect": "No execution path is permitted. This contract is local documentation only."
+}

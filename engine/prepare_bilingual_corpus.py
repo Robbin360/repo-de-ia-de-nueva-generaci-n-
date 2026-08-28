@@ -61,6 +61,36 @@ def hf_rows(source: dict) -> Iterator[dict]:
     )
 
 
+def validate_hf_configurations(sources: list[dict], config_names_loader=None) -> None:
+    """Comprueba los subconjuntos HF antes de crear la salida o abrir shards."""
+    if config_names_loader is None:
+        from datasets import get_dataset_config_names
+
+        config_names_loader = get_dataset_config_names
+    for source in sources:
+        if source["kind"] != "hf_text":
+            continue
+        config = source.get("config")
+        if not isinstance(config, str) or not config:
+            raise RuntimeError(f"La fuente HF debe declarar config: {source['id']}")
+        try:
+            available = config_names_loader(
+                source["dataset"],
+                revision=source["revision"],
+            )
+        except Exception as error:
+            raise RuntimeError(
+                f"No se pudo verificar configuraciones de {source['id']} antes de crear la salida: {error}"
+            ) from error
+        if config not in available:
+            rendered = ", ".join(sorted(available)) or "ninguna"
+            raise RuntimeError(
+                f"Configuración HF no disponible para {source['id']}: {config}. "
+                f"Disponibles: {rendered}"
+            )
+        print(f"Preflight HF OK: {source['id']} config={config}", flush=True)
+
+
 RETRYABLE_HTTP_CODES = frozenset({429, 500, 502, 503, 504})
 RETRYABLE_TRANSPORT_ERRORS = (
     http.client.IncompleteRead,
@@ -327,6 +357,64 @@ def source_rows(source: dict, cache_dir: Path | None = None) -> Iterable[dict]:
     raise ValueError(f"Tipo de fuente no admitido: {kind}")
 
 
+def has_aligned_true_values(row: dict, fields: list[str], source_id: str) -> bool:
+    """Exige una misma traza válida cuando una fuente publica banderas como listas."""
+    if not isinstance(fields, list) or not fields or not all(isinstance(field, str) and field for field in fields):
+        raise RuntimeError(f"required_aligned_true_fields inválido: {source_id}")
+    values = [row.get(field) for field in fields]
+    if any(not isinstance(value, list) for value in values):
+        return False
+    common_length = min((len(value) for value in values), default=0)
+    return any(all(value[index] is True for value in values) for index in range(common_length))
+
+
+def validate_minimum_language_capacity(sources: list[dict], minimum_documents_by_language: dict) -> None:
+    """Rechaza un plan cuyo máximo declarado no pueda alcanzar su mínimo por idioma."""
+    if not isinstance(minimum_documents_by_language, dict):
+        raise RuntimeError("minimum_documents_by_language debe ser un objeto")
+    capacity: dict[str, int] = defaultdict(int)
+    for source in sources:
+        language = source.get("language")
+        limit = source.get("document_limit")
+        if not isinstance(language, str) or not language or isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
+            raise RuntimeError(f"Capacidad de fuente inválida: {source.get('id', source)}")
+        capacity[language] += limit
+    for language, minimum in minimum_documents_by_language.items():
+        if not isinstance(language, str) or not language or isinstance(minimum, bool) or not isinstance(minimum, int) or minimum < 1:
+            raise RuntimeError(f"Mínimo por idioma inválido: {language}={minimum}")
+        if capacity[language] < minimum:
+            raise RuntimeError(
+                f"Plan de datos inviable para {language}: límite autorizado {capacity[language]} < mínimo {minimum}"
+            )
+
+
+def text_from_source_row(source: dict, row: dict) -> str | None:
+    """Extrae texto o forma un ejemplo sólo con campos declarados en el manifiesto."""
+    aligned_true_fields = source.get("required_aligned_true_fields", [])
+    if aligned_true_fields and not has_aligned_true_values(row, aligned_true_fields, source["id"]):
+        return None
+    expected_values = source.get("required_values", {})
+    if not isinstance(expected_values, dict):
+        raise RuntimeError(f"required_values debe ser un objeto: {source['id']}")
+    for field, expected in expected_values.items():
+        if row.get(field) != expected:
+            return None
+
+    template = source.get("text_template")
+    if not template:
+        return row.get(source.get("text_column", "text"))
+    values: dict[str, str] = {}
+    for field in source.get("required_text_fields", []):
+        value = row.get(field)
+        if not isinstance(value, str) or not value.strip():
+            return None
+        values[field] = value
+    try:
+        return str(template).format(**values)
+    except (KeyError, ValueError) as error:
+        raise RuntimeError(f"Plantilla de texto inválida para {source['id']}: {error}") from error
+
+
 def write_record(handle: gzip.GzipFile, text: str, source: dict, digest: str) -> None:
     handle.write(
         (json.dumps({"text": text, "source": source["id"], "language": source["language"], "sha256": digest}, ensure_ascii=False) + "\n").encode("utf-8")
@@ -351,6 +439,9 @@ def run(args: argparse.Namespace) -> None:
             raise RuntimeError(f"La fuente no tiene aprobación explícita: {source['id']}")
         if source["kind"] == "hf_text" and not source.get("revision"):
             raise RuntimeError(f"La fuente HF debe fijar una revisión: {source['id']}")
+
+    validate_minimum_language_capacity(sources, manifest.get("minimum_documents_by_language", {}))
+    validate_hf_configurations(sources)
 
     filters = manifest.get("filters", {})
     output = Path(args.output)
@@ -411,7 +502,7 @@ def run(args: argparse.Namespace) -> None:
                     print(f"Fuente auxiliar omitida: {error}", flush=True)
                     continue
                 next_active.append(source)
-                text = normalize_text(row.get(source.get("text_column", "text")), bool(filters.get("remove_simple_pii", True)))
+                text = normalize_text(text_from_source_row(source, row), bool(filters.get("remove_simple_pii", True)))
                 minimum = int(source.get("min_characters", min_default))
                 if not text or len(text) < minimum or len(text) > max_chars or REPEATED_RE.search(text):
                     stats["rejected"] += 1

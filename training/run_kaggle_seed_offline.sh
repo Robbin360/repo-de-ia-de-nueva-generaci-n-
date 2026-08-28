@@ -30,6 +30,7 @@ for required in \
   "$AETHEL_SOURCE_DIR/engine/train_aethel_gpu.py" \
   "$AETHEL_SOURCE_DIR/engine/evaluate_nextgen.py" \
   "$AETHEL_SOURCE_DIR/engine/test_triton_gpu.py" \
+  "$AETHEL_SOURCE_DIR/engine/test_liquid_device_alignment.py" \
   "$AETHEL_SOURCE_DIR/training/validate_aethel_knowledge_package.py" \
   "$AETHEL_SOURCE_DIR/training/inspect_checkpoint.py"; do
   if [[ ! -f "$required" ]]; then
@@ -52,8 +53,29 @@ python "$AETHEL_SOURCE_DIR/training/validate_aethel_knowledge_package.py" \
   --report "$AETHEL_OUTPUT_DIR/package_preflight.json"
 
 test -f "$AETHEL_DATA_DIR/tokenizer.json"
-test -f "$AETHEL_DATA_DIR/corpus/holdout-en-00000.jsonl.gz"
-test -f "$AETHEL_DATA_DIR/corpus/holdout-es-00000.jsonl.gz"
+
+resolve_holdout() {
+  local language="$1"
+  local compressed="$AETHEL_DATA_DIR/corpus/holdout-${language}-00000.jsonl.gz"
+  local plaintext="$AETHEL_DATA_DIR/corpus/holdout-${language}-00000.jsonl"
+  if [[ -f "$compressed" && -f "$plaintext" ]]; then
+    echo "BLOCKED: el holdout ${language} mezcla .jsonl.gz y .jsonl; el montaje debe usar un formato único verificable." >&2
+    exit 7
+  fi
+  if [[ -f "$compressed" ]]; then
+    printf '%s\n' "$compressed"
+    return
+  fi
+  if [[ -f "$plaintext" ]]; then
+    printf '%s\n' "$plaintext"
+    return
+  fi
+  echo "BLOCKED: falta el holdout ${language} en formato .jsonl.gz o .jsonl." >&2
+  exit 7
+}
+
+HOLDOUT_EN="$(resolve_holdout en)"
+HOLDOUT_ES="$(resolve_holdout es)"
 
 python - <<'PY'
 import torch
@@ -71,9 +93,23 @@ fi
 
 cd "$AETHEL_SOURCE_DIR/engine"
 python test_triton_gpu.py
+python test_liquid_device_alignment.py
 
 cd "$AETHEL_SOURCE_DIR"
-python -m pip install --quiet -r training/requirements.txt
+python - <<'PY'
+import importlib
+import sys
+
+required = ("torch", "tokenizers", "triton")
+missing = [name for name in required if importlib.util.find_spec(name) is None]
+if missing:
+    raise SystemExit(
+        "BLOCKED: faltan dependencias ya requeridas por E0: " + ", ".join(missing) +
+        ". El lanzador no instala paquetes ni realiza peticiones de red."
+    )
+import torch
+print({"offline_dependency_check": "passed", "torch": torch.__version__, "cuda": torch.version.cuda})
+PY
 
 python engine/train_aethel_gpu.py \
   --corpus-dir "$AETHEL_DATA_DIR/corpus" \
@@ -104,13 +140,13 @@ python "$AETHEL_SOURCE_DIR/training/inspect_checkpoint.py" \
 
 python "$AETHEL_SOURCE_DIR/engine/evaluate_nextgen.py" \
   --checkpoint "$AETHEL_OUTPUT_DIR/latest.pt" \
-  --corpus "$AETHEL_DATA_DIR/corpus/holdout-en-00000.jsonl.gz" \
+  --corpus "$HOLDOUT_EN" \
   --tokenizer "$AETHEL_DATA_DIR/tokenizer.json" \
   --seq-len "$AETHEL_SEQ_LEN" \
   > "$AETHEL_OUTPUT_DIR/evaluation_holdout_en.json"
 python "$AETHEL_SOURCE_DIR/engine/evaluate_nextgen.py" \
   --checkpoint "$AETHEL_OUTPUT_DIR/latest.pt" \
-  --corpus "$AETHEL_DATA_DIR/corpus/holdout-es-00000.jsonl.gz" \
+  --corpus "$HOLDOUT_ES" \
   --tokenizer "$AETHEL_DATA_DIR/tokenizer.json" \
   --seq-len "$AETHEL_SEQ_LEN" \
   > "$AETHEL_OUTPUT_DIR/evaluation_holdout_es.json"
