@@ -1,7 +1,7 @@
 # Auditoría de capacidades de Aethel Meta
 
-**Autor:** Manus AI
-**Fecha:** 26 de agosto de 2026
+**Autor:** Manus AI  
+**Fecha:** 26 de agosto de 2026  
 **Alcance:** comparación estática entre la rama `main` del repositorio original de Aethel Meta y el núcleo actual de `aethel-platform`. Esta auditoría no ejecuta GPU, no carga checkpoints, no abre el corpus ni fabrica métricas.
 
 ## Conclusión ejecutiva

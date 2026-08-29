@@ -28,6 +28,7 @@ def main() -> int:
     parser.add_argument("--source-dir", type=Path, required=True)
     parser.add_argument("--data-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--expected-release", default="d1d-v1-router-entropy-train-only")
     args = parser.parse_args()
 
     source_dir = args.source_dir.resolve()
@@ -40,11 +41,20 @@ def main() -> int:
         "training/validate_aethel_knowledge_package.py",
         "training/run_kaggle_seed_offline.sh",
         "training/run_triton_cuda_acceptance.py",
+        "training/aethel_d1d_v5_source_release.json",
         "engine/aethel_model.py",
         "engine/train_aethel_gpu.py",
         "engine/evaluate_nextgen.py",
     )
     missing_source = [relative for relative in required_source if not (source_dir / relative).is_file()]
+    release_path = source_dir / "training/aethel_d1d_v5_source_release.json"
+    observed_release = None
+    release_error = None
+    if release_path.is_file():
+        try:
+            observed_release = json.loads(release_path.read_text(encoding="utf-8")).get("release")
+        except (OSError, json.JSONDecodeError) as error:
+            release_error = str(error)
     dataset: dict[str, Any]
     if data_dir.is_dir():
         dataset = validate(data_dir)
@@ -59,6 +69,8 @@ def main() -> int:
     blockers: list[str] = []
     if missing_source:
         blockers.append("source_contract_missing")
+    if observed_release != args.expected_release:
+        blockers.append("unexpected_source_release")
     if not dataset.get("valid"):
         blockers.append("dataset_validation_failed")
     if not writable:
@@ -72,7 +84,13 @@ def main() -> int:
         "source_dir": str(source_dir),
         "data_dir": str(data_dir),
         "output_dir": str(output_dir),
-        "source": {"required_files": list(required_source), "missing": missing_source},
+        "source": {
+            "required_files": list(required_source),
+            "missing": missing_source,
+            "expected_release": args.expected_release,
+            "observed_release": observed_release,
+            "release_error": release_error,
+        },
         "dataset": dataset,
         "storage": {"writable": writable, "write_error": write_error, "free_bytes": int(disk.free)},
         "authorization": {

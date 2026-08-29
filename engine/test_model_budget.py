@@ -19,7 +19,9 @@ def test_analytical_budget_matches_tiny_model() -> None:
     }
     model = AethelNextGen(NextGenConfig(**values), memory_path="/tmp/aethel-budget-test.jsonl")
     actual = sum(parameter.numel() for parameter in model.parameters())
-    assert report("tiny", values)["parameters_total"] == actual
+    budget = report("tiny", values)
+    assert budget["parameters_total"] == actual
+    assert 0 < budget["parameters_active_approx"] < actual
 
 
 def test_triton_required_prefill_contract_blocks_gpu_sdpa_without_cuda() -> None:

@@ -1,0 +1,57 @@
+{
+  "hard_density": {
+    "soft_mass_signal": false,
+    "steps": 160,
+    "top2_imbalance": 0.75,
+    "probability_mass_imbalance": 0.5932110548019409,
+    "top2_experts_used": 2,
+    "top2_counts": [
+      0.5,
+      0.5,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "probability_mass": [
+      0.524864673614502,
+      0.3183465301990509,
+      0.02613147906959057,
+      0.02613147906959057,
+      0.02613147906959057,
+      0.02613147906959057,
+      0.02613147906959057,
+      0.02613147906959057
+    ]
+  },
+  "soft_mass": {
+    "soft_mass_signal": true,
+    "steps": 160,
+    "top2_imbalance": 0.75,
+    "probability_mass_imbalance": 0.5777986645698547,
+    "top2_experts_used": 2,
+    "top2_counts": [
+      0.5,
+      0.5,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "probability_mass": [
+      0.4772172272205353,
+      0.35058149695396423,
+      0.028700200840830803,
+      0.028700200840830803,
+      0.028700200840830803,
+      0.028700200840830803,
+      0.028700200840830803,
+      0.028700200840830803
+    ]
+  },
+  "interpretation": "CPU-only toy router experiment; not a model-quality, GPU-performance or training result. A signal is useful only if it improves hard top-2 load without unacceptable routing cost."
+}

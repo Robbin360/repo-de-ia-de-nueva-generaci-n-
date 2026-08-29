@@ -1,0 +1,37 @@
+flowchart TD
+    U[Entrada EN/ES] --> T[Tokenizer BPE versionado]
+    T --> E[Embeddings]
+    E --> WM[Memoria de trabajo GRU]
+    WM --> R[La Roca\nruta estable]
+    WM --> L[El Líquido\ntraza Hebbiana versionada]
+    WM --> Q[Recuperación episódica\ny semántica]
+    R --> G[Espacio de Trabajo Global\npesos de mezcla auditables]
+    L --> G
+    Q --> G
+    G --> A{Refinamiento adaptativo\nopt-in y presupuestado}
+    A --> X[Transformer causal]
+    X --> P[RoPE + GQA]
+    P --> M[MoE top-2\n8 expertos / 2 activos]
+    M --> Y[Logits + pérdidas auxiliares]
+    Y --> N[Neuromodulación\nsorpresa/prioridad]
+    N --> C[Curiosidad\nobservación o propuesta]
+    C --> S{¿Replay aprobado?}
+    S -- No --> O[Persistencia de telemetría]
+    S -- Sí --> D[Sueño: replay\npreflight + aprobación]
+    D --> V[Dataset candidato\nfuera de holdout]
+    V --> TR[Entrenamiento offline\ncheckpoint completo]
+    TR --> EV[Evaluación EN/ES\nrazonamiento + regresión]
+    EV --> K{¿Pasa puertas?}
+    K -- No --> Z[Descartar candidato\nconservar evidencia]
+    K -- Sí --> PR[Promover adaptador\no expansión versionada]
+    PR --> X
+    O --> H[Recibo: hashes, RNG,\nconfiguración y métricas]
+    TR --> H
+    EV --> H
+
+    classDef stable fill:#123,stroke:#4dd0e1,color:#fff
+    classDef control fill:#24133f,stroke:#c084fc,color:#fff
+    classDef data fill:#142b20,stroke:#86efac,color:#fff
+    class R,L,G,WM stable
+    class C,S,D,K control
+    class V,TR,EV,PR data

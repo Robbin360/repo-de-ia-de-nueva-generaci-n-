@@ -1,7 +1,7 @@
 # Plan de revisión futura de evidencia D1A — sin ejecución
 
-**Fecha:** 23 de agosto de 2026
-**Estado:** plan documental aprobado; **ninguna revisión de salida ha comenzado**.
+**Fecha:** 23 de agosto de 2026  
+**Estado:** plan documental aprobado; **ninguna revisión de salida ha comenzado**.  
 **Alcance:** definir una futura revisión limitada de evidencia D1A sin abrir salidas, checkpoints, corpus, holdout ni Kaggle desde este trabajo.
 
 ## 1. Punto de partida verificable

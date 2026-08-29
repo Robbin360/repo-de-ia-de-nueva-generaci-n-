@@ -1,8 +1,8 @@
 # Resultado de la corrida correctiva del router — Direct Train Router Fix V1
 
-**Fecha:** 26 de agosto de 2026
-**Estado:** `MEASURED_NOT_PROMOTED`
-**Origen de evidencia:** salida CUDA de Kaggle compartida por el usuario.
+**Fecha:** 26 de agosto de 2026  
+**Estado:** `MEASURED_NOT_PROMOTED`  
+**Origen de evidencia:** salida CUDA de Kaggle compartida por el usuario.  
 **Alcance:** entrenamiento desde inicialización nueva, 768 pasos, Dataset v1 de entrenamiento; sin checkpoint previo, sin holdout y sin promoción.
 
 ## Decisión

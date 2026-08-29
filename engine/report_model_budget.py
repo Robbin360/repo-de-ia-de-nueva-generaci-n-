@@ -20,6 +20,7 @@ def report(name: str, values: dict) -> dict:
     heads = values["heads"]
     kv_heads = values["kv_heads"]
     experts = values["experts"]
+    active_experts = values["active_experts"]
     layers = values["layers"]
     vocab_size = values["vocab_size"]
     hidden_dim = 256 * math.ceil((8 * dim / 3) / 256)
@@ -35,12 +36,16 @@ def report(name: str, values: dict) -> dict:
     adaptive_steps = int(values.get("adaptive_refinement_steps", 0))
     adaptive_parameters = (6 * dim * dim + 9 * dim + 1) if adaptive_steps else 0
     total = core + nextgen + adaptive_parameters
+    active_core = tied_embedding + layers * (attention + (dim * experts) + (active_experts * 3 * dim * hidden_dim) + norms) + dim
+    active_total = active_core + nextgen + adaptive_parameters
     # Estimación transparente: pesos BF16, gradientes BF16 y dos estados Adam FP32 por parámetro.
     optimizer_bytes = total * (2 + 2 + 4 + 4)
     return {
         "preset": name,
         "parameters_total": total,
+        "parameters_active_approx": active_total,
         "parameters_millions": round(total / 1_000_000, 2),
+        "parameters_active_millions_approx": round(active_total / 1_000_000, 2),
         "active_expert_fraction": f"{values['active_experts']}/{experts}",
         "estimated_optimizer_gib": round(optimizer_bytes / 1024**3, 2),
         "context": values["max_seq_len"],

@@ -1,8 +1,8 @@
 # Revisión de evidencia del router D1A–D1B
 
-**Estado:** `DOCUMENTARY_REVIEW_ONLY`
-**Fecha:** 2026-08-23
-**Autor:** Manus AI
+**Estado:** `DOCUMENTARY_REVIEW_ONLY`  
+**Fecha:** 2026-08-23  
+**Autor:** Manus AI  
 **Alcance:** comparación de resúmenes seguros ya registrados; no se abrieron outputs, checkpoints, corpus, shards ni holdout.
 
 ## Propósito y límites

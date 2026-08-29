@@ -1,7 +1,7 @@
 # Resultado de Aethel — Entrenamiento Directo V1
 
-**Fecha de evidencia:** 26 de agosto de 2026
-**Fuente:** salida textual compartida por el usuario desde el cuaderno Kaggle limpio `Aethel — Entrenamiento Directo Dataset V1`.
+**Fecha de evidencia:** 26 de agosto de 2026  
+**Fuente:** salida textual compartida por el usuario desde el cuaderno Kaggle limpio `Aethel — Entrenamiento Directo Dataset V1`.  
 **Estado de promoción:** `MEASURED_NOT_PROMOTED`.
 
 ## Alcance ejecutado

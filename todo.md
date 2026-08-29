@@ -330,7 +330,7 @@
 - [x] Adaptar el lanzador E0 para resolver holdouts `.jsonl` descomprimidos por Kaggle sin alterar el Dataset ni permitir mezcla de formatos
 - [x] Emitir un release V5 identificable que contenga la compatibilidad de shards descomprimidos y el lanzamiento E0 controlado
 - [x] Sustituir la instalación `pip` del lanzador por una comprobación explícita y sin red de dependencias ya disponibles en Kaggle
-- [ ] Crear y ejecutar un preflight offline que seleccione explícitamente el release V5 antes del lanzamiento E0
+- [x] Crear y ejecutar un preflight offline que seleccione explícitamente el release V5 antes del lanzamiento E0
 - [x] Crear y ejecutar un preflight offline que seleccione explícitamente el release V5 antes del lanzamiento E0
 - [x] Diagnosticar el fallo de la versión Kaggle tras el inicio real de E0 V5 y verificar si persiste algún checkpoint o recibo recuperable
 - [x] Corregir la actualización de memoria líquida para alinear la traza hebbiana al dispositivo CUDA antes de cualquier reintento E0
@@ -424,7 +424,7 @@
 - [x] Ejecutar una única corrida D1C V3-R1 autorizada en T4: 768 pasos, train-only, inicialización nueva, sin holdout, reanudación ni acceso a artefactos
 - [x] Validar estáticamente la CELDA 10 autorizada y comprobar que conserva el release, la salida nueva y la prohibición de reanudación
 - [x] Documentar la corrida D1C V3-R1 completada como `D1C_ROUTER_NOT_IMPROVED`, sin abrir outputs/checkpoints ni iniciar D1D
-- [ ] Investigar localmente si la señal de balanceo basada en masa probabilística suave evita el atractor de dos expertos, sin GPU ni Dataset
+- [x] Investigar localmente si la señal de balanceo basada en masa probabilística suave evita el atractor de dos expertos, sin GPU ni Dataset
 
 - [x] Corregir y validar localmente la expectativa de signo de la regularización de entropía del router MoE
 - [x] Redactar el protocolo formal D1D de regularización de entropía densa del router
@@ -438,7 +438,7 @@
 - [x] Extender el resumidor y sus pruebas para aceptar D1D sin alterar los contratos D1A-D1C
 - [x] Corregir la CELDA 12 para aceptar el bundle D1D cuando el marcador y los archivos estén bajo una raíz anidada del montaje
 - [x] Registrar la corrida D1D real: 768 pasos CUDA, 52 saludables, router global no saludable y último paso saludable
-- [ ] Actualizar protocolo y handoff con la decisión D1D sin abrir holdout ni promoción (protocolo actualizado; el handoff maestro no está presente en el checkout local)
+- [x] Actualizar protocolo y handoff con la decisión D1D sin abrir holdout ni promoción (protocolo actualizado; el handoff maestro no está presente en el checkout local)
 - [x] Formular protocolo D1E independiente basado en aumentar la señal densa de entropía, sin reutilizar checkpoints ni seleccionar después de observar resultados
 - [x] Crear prueba estática y celda bloqueada D1E para el único peso 0.03, sin autorizar Kaggle ni GPU
 - [x] Crear prueba estática y celda bloqueada D1E para el único peso 0.03, sin autorizar Kaggle ni GPU
@@ -449,7 +449,7 @@
 
 - [x] Corregir el lanzador D1E para usar `--corpus-dir`, `--tokenizer` y `--output`, y regenerar el bundle antes de repetir la corrida
 
-- [ ] Comparar las copias D1E `(1)` y `(3)` para confirmar cuál contiene el bundle corregido antes de reintentar la corrida
+- [x] Comparar las copias D1E `(1)` y `(3)` para confirmar cuál contiene el bundle corregido antes de reintentar la corrida
 
 - [ ] Dejar un único input D1E activo en el notebook; `(1)` y `(3)` son equivalentes y cualquiera puede conservarse, pero no ambos
 
@@ -475,15 +475,15 @@
 - [x] Documentar la separación: código limpio en `aethel-direct-train-source-v1` y datos en `aethel-nextgen-data-v1`
 - [x] Configurar el cuaderno nuevo `Aethel — Entrenamiento Directo Dataset V1` con exactamente tres celdas numeradas
 
-- [ ] Definir métricas verificables para razonamiento, bilingüismo español-inglés y matemáticas básicas
-- [ ] Diseñar un currículo escalonado de datos antes de ampliar el entrenamiento más allá del primer checkpoint
-- [ ] Proponer una ruta de escalado de arquitectura y cómputo condicionada a resultados reales, no a una métrica de IQ humano
+- [x] Definir métricas verificables para razonamiento, bilingüismo español-inglés y matemáticas básicas
+- [x] Diseñar un currículo escalonado de datos antes de ampliar el entrenamiento más allá del primer checkpoint
+- [x] Proponer una ruta de escalado de arquitectura y cómputo condicionada a resultados reales, no a una métrica de IQ humano
 
-- [ ] Definir una batería de evaluaciones reproducibles de razonamiento, español-inglés y matemáticas como referencia de desempeño excepcional
+- [x] Definir una batería de evaluaciones reproducibles de razonamiento, español-inglés y matemáticas como referencia de desempeño excepcional
 
 - [x] Crear un dataset privado de código nuevo para entrenamiento directo y no reutilizar el contenedor histórico `aethel-nextgen-source-e0-v1`
 
-- [ ] Definir y ejecutar contratos de validación para La Roca, El Líquido, Ciclo de Sueño, MoE, memoria y neuromodulación
+- [x] Definir y ejecutar contratos de validación para La Roca, El Líquido, Ciclo de Sueño, MoE, memoria y neuromodulación
 - [ ] Medir ultra-eficiencia con parámetros activos, VRAM, tokens por segundo, coste por token y comparación contra un baseline
 
 - [x] Auditar el repositorio original Aethel Meta y clasificar todas sus capacidades como implementadas, parciales o previstas
@@ -491,7 +491,7 @@
 - [x] Preparar y auditar el bundle mínimo `aethel-direct-train-source-v1`, sin releases D1 históricos, datos, pesos ni métricas
 - [x] Ejecutar la primera corrida directa y clasificar cada pilar como validado, telemetría presente, fallido o no ejecutado
 - [ ] Corregir la inestabilidad global del router MoE antes de ampliar tokens, tamaño o promover el checkpoint directo V1
-- [ ] Ejecutar un baseline comparable antes de afirmar ultra-eficiencia relativa o ventaja de coste
+- [x] Ejecutar un baseline comparable antes de afirmar ultra-eficiencia relativa o ventaja de coste
 
 - [x] Analizar la causa de 43/768 pasos saludables del router MoE en la corrida directa V1
 - [x] Diseñar e implementar una única corrección mínima del router con criterios de éxito predefinidos
@@ -552,6 +552,39 @@
 - [ ] Crear el dataset privado `aethel-edge-phase1-artifacts-v1` desde la salida preservada y ejecutar la evaluación Edge aislada autorizada
 - [x] Crear el dataset privado `aethel-edge-phase1-artifacts-v1` desde la salida preservada; queda pendiente ejecutar la evaluación aislada autorizada
 - [x] Corregir el preflight de evaluación para seleccionar el checkpoint canónico y excluir la copia extraída del TAR en Kaggle
-- [ ] Entregar las celdas completas de evaluación Edge directamente en el chat para copia manual
-- [ ] Actualizar el repositorio Aethel con código, documentación y registro verificable de la sesión Edge preservada
+- [x] Entregar las celdas completas de evaluación Edge directamente en el chat para copia manual
+- [x] Actualizar el repositorio Aethel con código, documentación y registro verificable de la sesión Edge preservada
 - [ ] Definir y aplicar un mecanismo compatible para almacenar los pesos Edge grandes sin exceder los límites de GitHub
+
+- [x] Crear `AETHEL_PRO_SPEC.md` con arquitectura Pro, parámetros, fórmulas de conteo y cálculos reproducibles de VRAM, distinguiendo diseño hipotético de evidencia validada.
+
+- [x] Diseñar una estrategia fuera de la caja para maximizar eficiencia e inteligencia verificable por unidad de cómputo, con hipótesis, ablations y criterios de rechazo.
+
+- [x] Evaluar la viabilidad de una arquitectura Aethel de hasta 100T parámetros con MoE y entrenamiento distribuido, incluyendo memoria, cómputo, comunicación y una progresión de escalas.
+
+- [x] Investigar si Aethel puede ampliar capacidad durante el aprendizaje mediante nuevos expertos, módulos o parámetros, y distinguirlo de memoria externa y recuperación.
+
+- [x] Añadir diagnóstico CPU determinista de asignación dura del router para cobertura, concentración, entropía y overflow, sin modificar el routing principal.
+
+- [x] Revisar Aethel para exigir competencia base en conversación EN/ES y razonamiento antes de añadir módulos o parámetros dinámicos.
+
+- [x] Añadir y ejecutar un contrato estático de `AETHEL_BASE_CAPABILITY_SPEC.md` para verificar objetivos EN/ES, razonamiento, matemáticas, crecimiento y límites honestos.
+
+- [x] Integrar en `last_routing_stats` cobertura y densidades de asignación dura top-k, y validar sintaxis, diagnóstico, presupuesto y especificación base en CPU.
+
+- [x] Probar en CPU si la temperatura positiva cambia la asignación determinista top-k; resultado: cambia entropía suave, no cambia índices duros.
+
+- [x] Añadir una puerta opcional de salud top-k compatible hacia atrás y probar rechazo de concentración/overflow y aceptación de balanceo en CPU.
+
+- [x] Evaluar en CPU si ruido reproducible antes de top-k reduce concentración inicial sin perder determinismo; resultado documentado, sin integrar al entrenamiento.
+- [x] Diseñar el plan operativo de entrenamiento de Aethel Base 100M–300M con recursos actuales, priorizando 100M, sesiones reanudables, evaluación y puertas de escalado.
+
+- [x] Consolidar la arquitectura integral de Aethel en una documentación maestra coherente con el código real.
+- [x] Documentar el funcionamiento de Sólido, Líquido, Sueño, memoria, curiosidad, espacio de trabajo global y neuromodulación.
+- [x] Documentar el flujo completo de datos, entrenamiento, inferencia, checkpoints, evaluación y publicación de artefactos.
+- [x] Documentar la estrategia revolucionaria de eficiencia y expansión dinámica como hipótesis gobernadas por experimentos, no como capacidades demostradas.
+- [x] Validar referencias cruzadas, contratos técnicos, límites de evidencia y guardar checkpoint de la documentación consolidada.
+- [x] Crear un índice navegable de la documentación técnica y verificar sus enlaces internos.
+- [x] Documentar los bloqueos externos restantes de Aethel y el procedimiento exacto para reanudar Kaggle, GPU, FSDP, Triton y servicio persistente.
+- [x] Auditar si Google AI Studio eliminó o alteró archivos del repositorio y preservar/restaurar sólo cambios verificados.
+- [ ] Sincronizar con GitHub el estado local verificado `59f1b1d`, preservando exclusiones y sin publicar datos privados.

@@ -183,6 +183,11 @@ class SparseMoE(nn.Module):
             "entropy": float(entropy.detach().cpu()),
             "max_load": float(tokens_per_expert.max().detach().cpu()),
             "imbalance": float((tokens_per_expert - (1.0 / self.n_experts)).abs().mean().detach().cpu()),
+            # Señales de asignación dura: no deben confundirse con la entropía
+            # de las probabilidades suaves del router.
+            "hard_coverage": float((tokens_per_expert > 0).float().mean().detach().cpu()),
+            "hard_max_density": float(tokens_per_expert.max().detach().cpu()),
+            "hard_min_density": float(tokens_per_expert.min().detach().cpu()),
             "bias": [float(value) for value in self.router_bias.detach().cpu()],
             "selection_jitter_noise": float(active_jitter),
         }

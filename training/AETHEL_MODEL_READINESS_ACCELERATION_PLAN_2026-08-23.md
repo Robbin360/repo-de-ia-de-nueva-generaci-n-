@@ -1,8 +1,8 @@
 # Ruta de aceleración hacia un primer modelo Aethel verificable
 
-**Estado:** `LOCAL_READINESS_PLAN_ONLY`
-**Fecha:** 23 de agosto de 2026
-**Autor:** Manus AI
+**Estado:** `LOCAL_READINESS_PLAN_ONLY`  
+**Fecha:** 23 de agosto de 2026  
+**Autor:** Manus AI  
 **Alcance:** ordenar el trabajo local y las autorizaciones futuras; no abre outputs, checkpoints, corpus, shards ni holdout, y no modifica Kaggle, el Dataset, notebook, GPU ni serving.
 
 ## Objetivo verificable
